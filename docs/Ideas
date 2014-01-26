@@ -1,0 +1,7 @@
+Formatting Data:
+----------------
+• Add indicator feature in calendar_df for 'they put it on themselves'
+	- contained in calendar_df['creator']['self']
+• 'Cost' is probably informative of what type of events they like to go to
+	- we might only have access to this once we go live and see what people click through to
+• Do cross-referencing to see what events on peoples' calendars are also in the recommended activities section
