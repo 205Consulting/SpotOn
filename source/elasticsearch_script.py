@@ -40,7 +40,8 @@ def main(argv):
 	last = 0
 	while (len(master_data) < upper_limit):
 		try:
-			params = {'from': len(master_data) + start, 'to':len(master_data) + start + 100}
+			print "CURRENTLY PULLING: %d to %d" % (len(master_data) + start, len(master_data) + start + 500)
+			params = {'from': len(master_data) + start, 'to':len(master_data) + start + 500}
 			request = requests.get(endpoint, auth=(user, pw), params=params)
 			data = request.json()['hits']['hits']
 			master_data += data
