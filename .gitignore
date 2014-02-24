@@ -37,3 +37,4 @@ nosetests.xml
 
 #=====[ DATA ]=====
 data/*
+word2vec/*

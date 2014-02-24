@@ -36,9 +36,9 @@ def tokenize_remove_stopwords (s):
 # prints out a welcome message
 def print_welcome ():
 	print "###########################################################"
-	print "#####[ SpotOn Calendar Event Recommendation System 	]#####"
-	print "#####[ =========================================== 	]#####"
-	print "#####[ by Jay Hack, Sam Beder, Ankit Kumar		]#####"
+	print "#####[ SpotOn Calendar Event Recommendation System ]#####"
+	print "#####[ =========================================== ]#####"
+	print "#####[ by Jay Hack, Sam Beder, Ankit Kumar	]#####"
 	print "#####[ Winter 2014					]#####"
 	print "###########################################################"
 	print "\n"

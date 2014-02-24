@@ -7,13 +7,9 @@
 
 0. To Do:
 ---------
+• remove numbers from everythin
+• find correspondences between activities_df and calendar_events_df
 
-• Script to pull (as much as possible) data from elastic search
-	-- store in JSON
-	-- sam and ankit
-• Construct users from 'calendar events' dataframe
-	-- jay
-	-- tokenize event descriptions/names?
 
 
 ============================
