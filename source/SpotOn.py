@@ -15,6 +15,7 @@ class SpotOnAnalysis:
 					'data_dir':				os.path.join(os.getcwd(), '../data'),
 					'calendar_events_df':	os.path.join (os.getcwd (), '../data/calendar_events.df'),
 					'activities_df':		os.path.join (os.getcwd(), '../data/activities.df')
+					'users_df':				os.path.join (os.getcwd(), '../data/users.df')
 				}
 
 	valid_timezones = set([	
@@ -46,7 +47,7 @@ class SpotOnAnalysis:
 		"""
 			PUBLIC: Constructor
 			-------------------
-			loads in the data 
+			loads in all dataframes
 		"""
 		print_welcome ()
 
@@ -56,6 +57,7 @@ class SpotOnAnalysis:
 		#=====[ Step 1: load in dataframes	]=====
 		# self.load_calendar_events_df ()
 		# self.load_activities_df ()
+		self.load_users_df ()
 
 		
 	def load_calendar_events_df (self):
@@ -80,9 +82,15 @@ class SpotOnAnalysis:
 		print_status ("load_activities_df", "complete")
 
 
-
-
-
+	def load_users_df (self):
+		"""
+			PRIVATE: load_users_df
+			----------------------
+			loads in the users df 
+		"""
+		print_status ("load_users_df", "loading...")
+		self.users_df = pd.read_pickle (self.filenames['users_df'])
+		print_status ("load_users_df", "complete")
 
 
 
@@ -102,6 +110,25 @@ class SpotOnAnalysis:
 			drops columns that we don't need to use 
 		"""
 		self.calendar_events_df = self.calendar_events_df.drop(['updated', 'website', 'raw'], 1)
+
+
+	def filter_location_ce (self):
+		"""
+			PRIVATE: filter_location_ce
+			---------------------------
+			removes all rows from self.calendar_events_df that do not have a timezone
+			listed in self.valid_timezones
+		"""
+		def is_valid_timezone (row):
+			if 'tz' in row['location']:
+				return (row['location']['tz'] in self.valid_timezones)
+			return False
+
+		#=====[ Step 1: add column for 'valid timezone'	]=====
+		self.calendar_events_df['valid_timezone'] = self.calendar_events_df.apply (is_valid_timezone, 1)
+
+		#=====[ Step 2: select only those with a valid timezone	]=====
+		self.calendar_events_df = self.calendar_events_df[self.calendar_events_df['valid_timezone'] == True]
 
 
 	def reformat_dates (self):
@@ -137,25 +164,6 @@ class SpotOnAnalysis:
 
 		self.calendar_events_df['self_created'] = self.calendar_events_df.apply (extract_self_created, 1)
 		self.calendar_events_df.drop ('creator', 1)
-
-
-	def filter_location_ce (self):
-		"""
-			PRIVATE: filter_location_ce
-			---------------------------
-			removes all rows from self.calendar_events_df that do not have a timezone
-			listed in self.valid_timezones
-		"""
-		def is_valid_timezone (row):
-			if 'tz' in row['location']:
-				return (row['location']['tz'] in self.valid_timezones)
-			return False
-
-		#=====[ Step 1: add column for 'valid timezone'	]=====
-		self.calendar_events_df['valid_timezone'] = self.calendar_events_df.apply (is_valid_timezone, 1)
-
-		#=====[ Step 2: select only those with a valid timezone	]=====
-		self.calendar_events_df = self.calendar_events_df[self.calendar_events_df['valid_timezone'] == True]
 
 	
 	def tokenize_remove_stopwords (self, s):
@@ -233,7 +241,7 @@ class SpotOnAnalysis:
 		self.calendar_events_df['cleaned_names'] = cleaned_names
 
 
-	
+
 
 
 
@@ -262,6 +270,7 @@ class SpotOnAnalysis:
 			to represent him or her
 		"""
 		return {
+					'id': None,
 					'event_ids': [],
 					'event_names': [],
 					'event_descriptions': [],
@@ -283,12 +292,13 @@ class SpotOnAnalysis:
 		user_rep = self.user_representations[user_id]
 
 		#=====[ Step 3: add relevant data	]=====
+		user_rep['id'] = user_id
 		user_rep['event_ids'].append (event['id'])
 		user_rep['event_names'].append (event['name'])					# Note: tokenize this?
 		user_rep['event_descriptions'].append (event['description'])	# Note: tokenize this?
-		user_rep['event_times'].append (event['dates']['start'])		# Note: only considering start time
-		user_rep['event_locations'].append (event['location'])			# Note: most are timezone
-		user_rep['event_responses'].append (event['response'])				# Note: only considering start time		
+		# user_rep['event_times'].append (event['dates']['start'])		# Note: only considering start time
+		# user_rep['event_locations'].append (event['location'])			# Note: most are timezone
+		# user_rep['event_responses'].append (event['response'])				# Note: only considering start time		
 
 
 	def construct_users_df (self):
@@ -309,6 +319,9 @@ class SpotOnAnalysis:
 		#=====[ Step 3: update user_representations for each row in dataframe  	]=====
 		self.calendar_events_df.apply (self.update_user_representation, axis=1)
 
+		#=====[ Step 4: create dataframe from user_representations	]=====
+		self.users_df = pd.DataFrame(self.user_representations.values())
+		del self.user_representations
 
 
 
