@@ -14,7 +14,7 @@ class SpotOnAnalysis:
 	filenames = {
 					'data_dir':				os.path.join(os.getcwd(), '../data'),
 					'calendar_events_df':	os.path.join (os.getcwd (), '../data/calendar_events.df'),
-					'activities_df':		os.path.join (os.getcwd(), '../data/activities.df')
+					'activities_df':		os.path.join (os.getcwd(), '../data/activities.df'),
 					'users_df':				os.path.join (os.getcwd(), '../data/users.df')
 				}
 
