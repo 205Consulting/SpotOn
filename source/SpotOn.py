@@ -56,8 +56,8 @@ class SpotOnAnalysis:
 
 		#=====[ Step 1: load in dataframes	]=====
 		# self.load_calendar_events_df ()
-		# self.load_activities_df ()
-		self.load_users_df ()
+		self.load_activities_df ()
+		# self.load_users_df ()
 
 		
 	def load_calendar_events_df (self):
@@ -131,7 +131,7 @@ class SpotOnAnalysis:
 		self.calendar_events_df = self.calendar_events_df[self.calendar_events_df['valid_timezone'] == True]
 
 
-	def reformat_dates (self):
+	def reformat_dates_ce (self):
 		"""
 			PRIVATE: reformat_dates
 			-----------------------
@@ -175,7 +175,7 @@ class SpotOnAnalysis:
 			- removes stopwords 
 			- converts all words to lowercase 
 		"""
-		return [w.lower() for w in self.tokenizer.tokenize(s) if not w in stopwords.words('english')]
+		return [w.lower() for w in self.tokenizer.tokenize(s) if not w.lower() in stopwords.words('english')]
 
 
 	def clean_name_description_ce (self):
@@ -218,29 +218,80 @@ class SpotOnAnalysis:
 		self.calendar_events_df['description'] = cleaned_descriptions
 
 
-	def clean_description_ce (self):
+	def drop_spurious_columns_a (self):
 		"""
-			PRIVATE: tokenize_name_ce
-			-------------------------
-			changes 'name' column
-			- tokenizes
-			- removes stopwords
+			PRIVATE: drop_spurious_columns_a
+			--------------------------------
+			drops columns that we don't need to use 
+		"""
+		drop_labels = [	'added', 'addedBy', 'alsoAddedBy', 'alsoAddedNum', 
+						'channels', 'classified', 'cost', 'cropped', 'doneBy', 
+						'facebook', 'hash', 'hidden', 'langs', 'likedBy', 
+						'numPeople', 'online', 'originalPicture', 'picture', 
+						'quality', 'random', 'scrap', 'secondarySites', 
+						'secondaryTag', 'site', 'trained', 'updated', 'user', 
+						'website', 'wishlistedBy', 'wishlists', 'dates']	
+		
+		self.activities_df = self.activities_df.drop(drop_labels, 1)
 
+
+	def clean_name_description_a (self):
+		"""
+			PRIVATE: clean_name_description
+			-------------------------------
+			applies 'tokenize_remove_stopwords' to both the name column
+			and the description column of self.calendar_events
 		"""
 		cleaned_names = []
+		cleaned_descriptions = []
 
-		def clean_name (row):
+		def clean_name_description (row):
+
+			#=====[ Step 1: retrieve name/description	]=====
 			name = row['name']
-			if type(name) == type(u'string'):
-				new_name = tokenize_remove_stopwords(row['name'])
-				cleaned_names.append (new_name)
+			description = row['description']
+
+			#=====[ Step 2: get new name	]=====
+			name_type = type(name)
+			if (name_type == type(u'string')) or (name_type == type('string')):
+				new_name = self.tokenize_remove_stopwords(name)
 			else:
-				cleaned_names.append (name)
+				new_name = name
 
-		self.calendar_events_df.apply (clean_name, 1)
-		self.calendar_events_df['cleaned_names'] = cleaned_names
+			#=====[ Step 3: get new name	]=====
+			desc_type = type(description)			
+			if (desc_type == type(u'string')) or (desc_type == type('string')): 
+				new_description = self.tokenize_remove_stopwords(description)
+			else:
+				new_description = description
+
+			#=====[ Step 4: add to lists	]=====
+			cleaned_names.append (new_name)
+			cleaned_descriptions.append (new_description)
 
 
+		self.activities_df.apply (clean_name_description, 1)
+		self.activities_df['name'] = cleaned_names
+		self.activities_df['description'] = cleaned_descriptions
+
+ 	
+ 	def filter_location_a (self):
+		"""
+			PRIVATE: filter_location_ce
+			---------------------------
+			removes all rows from self.calendar_events_df that do not have a timezone
+			listed in self.valid_timezones
+		"""
+		def is_valid_timezone (row):
+			if 'tz' in row['location']:
+				return (row['location']['tz'] in self.valid_timezones)
+			return False
+
+		#=====[ Step 1: add column for 'valid timezone'	]=====
+		self.activities_df['valid_timezone'] = self.activities_df.apply (is_valid_timezone, 1)
+
+		#=====[ Step 2: select only those with a valid timezone	]=====
+		self.activities_df = self.activities_df[self.activities_df['valid_timezone'] == True]
 
 
 
