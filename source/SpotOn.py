@@ -2,7 +2,7 @@ import os
 import math
 import numpy as np
 import pandas as pd
-from nltk.tokenize import wordpunct_tokenize
+from nltk.tokenize import wordpunct_tokenize, RegexpTokenizer
 from nltk.corpus import stopwords
 from util import *
 
@@ -50,8 +50,11 @@ class SpotOnAnalysis:
 		"""
 		print_welcome ()
 
+		#=====[ Step 1: setup tokenizer	]=====
+		self.tokenizer = RegexpTokenizer(r'\w+')
+
 		#=====[ Step 1: load in dataframes	]=====
-		self.load_calendar_events_df ()
+		# self.load_calendar_events_df ()
 		# self.load_activities_df ()
 
 		
@@ -77,10 +80,64 @@ class SpotOnAnalysis:
 		print_status ("load_activities_df", "complete")
 
 
+
+
+
+
+
+
+
+
+
+
 		
 	####################################################################################################
 	######################[ --- DATAFRAME PREPROCESSING --- ]###########################################
 	####################################################################################################
+
+	def drop_spurious_columns_ce (self):
+		"""
+			PRIVATE: drop_spurious_columns_ce
+			---------------------------------
+			drops columns that we don't need to use 
+		"""
+		self.calendar_events_df = self.calendar_events_df.drop(['updated', 'website', 'raw'], 1)
+
+
+	def reformat_dates (self):
+		"""
+			PRIVATE: reformat_dates
+			-----------------------
+			changes the date storage format
+		"""
+		def extract_start_date (row):
+			return row['dates']['start']
+
+		def extract_end_date (row):
+			return row['dates']['end']
+
+		self.calendar_events_df['start_date'] = self.calendar_events_df.apply (extract_start_date, 1)
+		self.calendar_events_df['end_date'] = self.calendar_events_df.apply (extract_end_date, 1)		
+		self.calendar_events_df.drop ('dates', 1)
+
+
+	def add_self_created (self):
+		"""
+			PRIVATE: add_self_created
+			-------------------------
+			adds a column for 'self_created', instead of 
+			keeping the creator 
+		"""
+		def extract_self_created (row):
+			if not type(row['creator']) == type({}):
+				return False
+			if u'self' in row['creator'].keys ():
+				return row['creator']['self']
+			return False
+
+		self.calendar_events_df['self_created'] = self.calendar_events_df.apply (extract_self_created, 1)
+		self.calendar_events_df.drop ('creator', 1)
+
 
 	def filter_location_ce (self):
 		"""
@@ -100,27 +157,83 @@ class SpotOnAnalysis:
 		#=====[ Step 2: select only those with a valid timezone	]=====
 		self.calendar_events_df = self.calendar_events_df[self.calendar_events_df['valid_timezone'] == True]
 
-
+	
 	def tokenize_remove_stopwords (self, s):
 		"""
 			PRIVATE: tokenize_remove_stopwords
 			----------------------------------
-			given a string s, returns a tokenized version with stopwords 
-			removed 
+			given a string s,
+			- tokenizes via nltk.wordpunct_tokenize
+			- removes stopwords 
+			- converts all words to lowercase 
 		"""
-		return [w for w in wordpunct_tokenize(s) if not w in stopwords.words('english')]
+		return [w.lower() for w in self.tokenizer.tokenize(s) if not w in stopwords.words('english')]
 
 
-	def tokenize_name_ce (self):
+	def clean_name_description_ce (self):
 		"""
-			PRIVATE: tokenize_name
-			----------------------
-			adds a column for tokenized name; also removes stopwords
+			PRIVATE: clean_name_description
+			-------------------------------
+			applies 'tokenize_remove_stopwords' to both the name column
+			and the description column of self.calendar_events
 		"""
+		cleaned_names = []
+		cleaned_descriptions = []
+
+		def clean_name_description (row):
+
+			#=====[ Step 1: retrieve name/description	]=====
+			name = row['name']
+			description = row['description']
+
+			#=====[ Step 2: get new name	]=====
+			name_type = type(name)
+			if (name_type == type(u'string')) or (name_type == type('string')):
+				new_name = self.tokenize_remove_stopwords(name)
+			else:
+				new_name = name
+
+			#=====[ Step 3: get new name	]=====
+			desc_type = type(description)			
+			if (desc_type == type(u'string')) or (desc_type == type('string')): 
+				new_description = self.tokenize_remove_stopwords(description)
+			else:
+				new_description = description
+
+			#=====[ Step 4: add to lists	]=====
+			cleaned_names.append (new_name)
+			cleaned_descriptions.append (new_description)
+
+
+		self.calendar_events_df.apply (clean_name_description, 1)
+		self.calendar_events_df['name'] = cleaned_names
+		self.calendar_events_df['description'] = cleaned_descriptions
+
+
+	def clean_description_ce (self):
+		"""
+			PRIVATE: tokenize_name_ce
+			-------------------------
+			changes 'name' column
+			- tokenizes
+			- removes stopwords
+
+		"""
+		cleaned_names = []
+
 		def clean_name (row):
-			return self.tokenize_remove_stopwords(row['name'])
+			name = row['name']
+			if type(name) == type(u'string'):
+				new_name = tokenize_remove_stopwords(row['name'])
+				cleaned_names.append (new_name)
+			else:
+				cleaned_names.append (name)
 
-		self.calendar_events_df['name'] = self.calendar_events_df.apply (clean_name)
+		self.calendar_events_df.apply (clean_name, 1)
+		self.calendar_events_df['cleaned_names'] = cleaned_names
+
+
+	
 
 
 

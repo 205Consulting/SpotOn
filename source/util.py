@@ -1,8 +1,35 @@
-#-------------------------------------------------- #
-# Module: util.py
-# ---------------
-# utilities that are uses across the entirep program
-#-------------------------------------------------- #
+from nltk.tokenize import wordpunct_tokenize
+from nltk.corpus import stopwords
+
+
+####################################################################################################
+######################[ --- NLP --- ]###############################################################
+####################################################################################################
+
+def tokenize_remove_stopwords (s):
+	"""
+		PRIVATE: tokenize_remove_stopwords
+		----------------------------------
+		given a string s,
+		- tokenizes via nltk.wordpunct_tokenize
+		- removes stopwords 
+		- converts all words to lowercase 
+	"""
+	return [w.lower() for w in wordpunct_tokenize(s) if not w in stopwords.words('english')]
+
+
+
+
+
+
+
+
+
+
+
+####################################################################################################
+######################[ --- INTERFACE --- ]#########################################################
+####################################################################################################
 
 # UTIL: print_welcome
 # -------------------
@@ -11,8 +38,8 @@ def print_welcome ():
 	print "###########################################################"
 	print "#####[ SpotOn Calendar Event Recommendation System 	]#####"
 	print "#####[ =========================================== 	]#####"
-	print "#####[ by Jay Hack, Sam Beder, Ankit Kumar			]#####"
-	print "#####[ Winter 2014									]#####"
+	print "#####[ by Jay Hack, Sam Beder, Ankit Kumar		]#####"
+	print "#####[ Winter 2014					]#####"
 	print "###########################################################"
 	print "\n"
 
@@ -67,7 +94,6 @@ def print_inner_status (stage, status):
 # using the format '	>>> [notification text] <<<'
 def print_notification (notification_text):
 	print "	>>> " + notification_text + " <<<"
-
 
 
 
