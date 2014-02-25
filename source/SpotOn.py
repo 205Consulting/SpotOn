@@ -1,11 +1,13 @@
 import os
 import math
 import numpy as np
-from scipy.spatial.distance import cosine
+from scipy.spatial.distance import cosine, euclidean
+from random import random
 import pandas as pd
 from nltk.tokenize import wordpunct_tokenize, RegexpTokenizer
 from nltk.corpus import stopwords
 from gensim.models.word2vec import Word2Vec
+from gensim import corpora 
 from util import *
 
 
@@ -17,7 +19,7 @@ class SpotOnAnalysis:
 					'data_dir':				os.path.join(os.getcwd(), '../data'),
 					'calendar_events_df':	os.path.join (os.getcwd (), '../data/calendar_events_huge.df'),
 					# 'calendar_events_df':	os.path.join (os.getcwd (), '../data/calendar_events.df'),					
-					'activities_df':		os.path.join (os.getcwd(), '../data/activities.df'),
+					'activities_df':		os.path.join (os.getcwd(), '../data/activities_huge.df'),
 					'users_df':				os.path.join (os.getcwd(), '../data/users.df'),
 					'word2vec_model':		os.path.join (os.getcwd(), '../data/word2vec_model')
 				}
@@ -303,10 +305,141 @@ class SpotOnAnalysis:
 
 
 
+	####################################################################################################
+	######################[ --- TFIDF --- ]#############################################################
+	####################################################################################################
+
+	def add_tfidf (self):
+		"""
+			add_tfidf
+			---------
+			for each event on hand, adds a list where ith element 
+			is tf.idf of ith word 
+		"""
+		#=====[ Step 1: get the list of all texts ] =====
+		words_texts = self.activities_df['words']
+		name_texts = self.activities_df['name']
+
+
+
+
 
 	####################################################################################################
 	######################[ --- WORD2VEC --- ]##########################################################
 	####################################################################################################
+
+	def tfidf_word2vec_combo (self):
+		"""
+			PRIVATE: word2vec_tfidf_combo
+			-----------------------------
+			adds word vectors from the title together based on 
+			tfidfs 
+		"""
+		self.weighted_word2vecs = []
+		def get_weighted_word2vec (row):
+			name_words = row['name']
+			word_vecs = [self.word2vec_model[w] if w in self.word2vec_model else None for w in name_words]
+			name_tfidfs = row['name_tfidf']
+			total = np.zeros(200,)
+			print name_words
+			print name_tfidfs
+			for i in range (len(name_tfidfs)):
+				if type(word_vecs[i]) != type(None):
+					total += name_tfidfs[i][1]*word_vecs[i]
+			print total.shape
+			self.weighted_word2vecs.append (total)
+
+		self.activities_df.apply (get_weighted_word2vec, 1);
+
+
+	def find_most_similar_activities (self, activity_index):
+		"""
+			PRIVATE: get_closest_ww2v
+			-------------------------
+			given an event, finds the closes events via 
+			weighted word 2 vectors 
+		"""
+		print "=====[ Finding most similar activities to the following ]====="
+		name = self.activities_df.iloc[activity_index]['name']
+		print ' '.join (name)
+		w2v = self.activities_df.iloc[activity_index]['weighted_word2vecs']
+		def get_distance(w2v2):
+			return euclidean (w2v, w2v2)
+		self.activities_df['distances'] = self.activities_df['weighted_word2vecs'].apply (get_distance)
+		print "###[ results: (euclidean distance, name) ]###"
+		self.activities_df_sorted = self.activities_df.sort ('distances')
+		for i in range(100):
+			row = self.activities_df_sorted.iloc[i]
+			print row['distances'], " | ", " ".join(self.activities_df_sorted.iloc[i]['name']) 
+		print "\n"
+
+
+	def w2v_recommend_for_user (self, user_index):
+		"""
+			PRIVATE: w2v_recommend_for_user 
+			-------------------------------
+			given a user, recommends activities for them
+		"""
+		print "=====[ Finding best activities for user ", user_index, " ]====="
+		user_row = self.users_df.iloc[user_index]
+		user_events = user_row['event_names']
+		
+
+	def w2v_similarity_demo (self):
+		"""
+			PUBLIC: w2v_similarity_demo
+			---------------------------
+			given an event, comes up with the most semantically
+			similar ones 
+		"""
+		#=====[ Step 1: load in relevant data	]=====
+		self.activities_df = pd.read_pickle('activities_small_weighted_word2vec.df')
+		self.load_word2vec_model ()
+
+		#=====[ Step 2: print out all names	]=====
+		print "==========[ ACTIVITY NAMES ]=========="
+		for i in range(len(self.activities_df)):
+			print i, " | ", ' '.join(self.activities_df.iloc[i]['name'])
+
+		print "\n>>> Call find_most_similar_activities on the index you want to query"
+
+
+	def w2v_recommendation_demo (self):
+		"""
+			PUBLIC: w2v_recommendation_demo
+			-------------------------------
+			given a user, comes up with the best events to 
+			recommend 
+		"""
+		#=====[ Step 1: load in all the data	]=====
+		self.activities_df = pd.read_pickle('activities_small_weighted_word2vec.df')
+		self.load_word2vec_model ()
+		self.users_df = pd.read_pickle('../data/users_spoton.df')
+
+		#=====[ Step 2: print out 30 random users	]=====
+		for i in range(30):
+			random_index = int(random()*370)
+			print "###[ USER: ", random_index, " ]###"
+			user_row = self.users_df.iloc[random_index]
+			num_events = len(user_row['event_names'])
+			if num_events < 20:
+				for event in user_row['event_names']:
+					try:
+						print '		', ' '.join(event)
+					except:
+						pass
+			else:
+				for i in range(20):
+					event = user_row['event_names'][i]
+					try:
+						print '		', ' '.join(event)
+					except:
+						pass
+
+		#=====[ Step 3: take in a random user	]=====
+
+
+
 
 	def word2vec_sum (self, word_list):
 		"""
@@ -330,7 +463,6 @@ class SpotOnAnalysis:
 			a field 'word2vec' that is the sum of the word vectors 
 			for each word in its NAME
 		"""
-
 		self.calendar_events_df['word2vec'] = self.calendar_events_df['name'].apply (self.word2vec_sum)
 
 

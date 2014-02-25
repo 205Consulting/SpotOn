@@ -7,8 +7,11 @@
 
 0. To Do:
 ---------
-• remove numbers from everythin
+• Remove numbers from calendar event titles
+• 
 • find correspondences between activities_df and calendar_events_df
+
+
 
 
 
