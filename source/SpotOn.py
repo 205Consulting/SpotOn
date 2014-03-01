@@ -53,12 +53,17 @@ class SpotOnAnalysis:
 		"""
 			PUBLIC: Constructor
 			-------------------
-			loads in all dataframes
+			loads in dataframes
 		"""
-		print_welcome ()
+		# print_welcome ()
 
-		#=====[ Step 1: setup tokenizer	]=====
-		self.tokenizer = RegexpTokenizer(r'\w+')
+		#=====[ Step 1: get filenames	]=====
+		# self.filenames['json']['activities'] = activities_json
+		# self.filenames['json']['calendar_events'] = calendar_events_json
+
+		#=====[ Step 2: setup preprocessing modules	]=====
+		self.tokenizer 		= RegexpTokenizer(r'\w+')
+		self.load_word2vec_model ()
 
 		#=====[ Step 1: load in dataframes	]=====
 		# self.load_calendar_events_df ()
@@ -285,9 +290,9 @@ class SpotOnAnalysis:
  	
  	def filter_location_a (self):
 		"""
-			PRIVATE: filter_location_ce
+			PRIVATE: filter_location_a
 			---------------------------
-			removes all rows from self.calendar_events_df that do not have a timezone
+			removes all rows from self.activities_df that do not have a timezone
 			listed in self.valid_timezones
 		"""
 		def is_valid_timezone (row):
@@ -681,9 +686,10 @@ class SpotOnAnalysis:
 
 
 
-	####################################################################################################
-	######################[ --- TEXT PREPROCESSING --- ]################################################
-	####################################################################################################
+
+
+
+
 
 
 
