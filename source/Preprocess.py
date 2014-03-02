@@ -6,7 +6,7 @@ import pandas as pd
 from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 from StorageDelegate import StorageDelegate
-from util import print_header, print_status
+from util import print_header, print_status, is_json, is_dataframe
 
 
 
@@ -59,31 +59,6 @@ a_retain_cols = [
 					'uid', 
 					'user'
 				]
-
-
-
-
-
-
-
-
-
-
-
-####################################################################################################
-######################[ --- UTILITIES --- ]#########################################################
-####################################################################################################
-
-def is_json (filename):
-	return (filename[-5:] == '.json')
-
-
-def is_dataframe (filename):
-	return (filename[-3:] == '.df')
-
-
-
-
 
 
 
