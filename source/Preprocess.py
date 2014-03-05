@@ -1,3 +1,7 @@
+# Class: Preprocess
+# -----------------
+# class responsible for formatting data in a way such
+# that higher-level analysis can take place on it
 import os
 import sys
 import json
@@ -50,7 +54,7 @@ ce_retain_cols = [
 				]
 
 a_retain_cols = [	
-					'description', 
+					'words', 
 					'id', 
 					'location', 
 					'name', 
@@ -203,7 +207,8 @@ class Preprocess:
 					return location['tz']
 			return None
 
-		df['location'] = df['location'].apply(extract_timezone)
+		if 'location' in df:
+			df['location'] = df['location'].apply(extract_timezone)
 		return df
 
 
@@ -214,8 +219,10 @@ class Preprocess:
 			returns a version of the dataframe with only those entries with 
 			timezones falling in 'us_timezones'
 		"""
-		valid_timezones_boolvec = df['location'].apply (lambda x: x in us_timezones)
-		return df[valid_timezones_boolvec]
+		if 'location' in df:
+			valid_timezones_boolvec = df['location'].apply (lambda x: x in us_timezones)
+			return df[valid_timezones_boolvec]
+		return df
 
 
 	def reformat_date (self, df):
@@ -246,7 +253,8 @@ class Preprocess:
 			converts the given dataframe's 'name' column so that it is tokenized, 
 			lowercase, no stopwords 
 		"""
-		df['name'] = df['name'].apply (self.tokenize_remove_stopwords)
+		if 'name' in df:
+			df['name'] = df['name'].apply (self.tokenize_remove_stopwords)
 		return df
 
 
@@ -257,5 +265,6 @@ class Preprocess:
 			converts the given dataframe's 'description' column so that it is tokenized, 
 			lowercase, no stopwords 
 		"""
-		df['description'] = df['description'].apply(self.tokenize_remove_stopwords)
+		if 'description' in df:
+			df['description'] = df['description'].apply(self.tokenize_remove_stopwords)
 		return df
