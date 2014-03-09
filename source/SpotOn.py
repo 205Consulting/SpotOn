@@ -6,6 +6,7 @@ import gensim
 from StorageDelegate import StorageDelegate
 from Preprocess import Preprocess
 from SemanticAnalysis import SemanticAnalysis
+from UserAnalysis import UserAnalysis
 from util import print_status, print_inner_status
 
 class SpotOn:
@@ -18,6 +19,7 @@ class SpotOn:
 		#=====[ Step 1: create member objects	]=====
 		self.storage_delegate = StorageDelegate ()
 		self.semantic_analysis = SemanticAnalysis ()
+		self.user_analysis = UserAnalysis ()
 
 
 	####################################################################################################
@@ -34,6 +36,27 @@ class SpotOn:
 		raise NotImplementedError
 
 
+
+	####################################################################################################
+	######################[ --- Getting Users --- ]#########################################################
+	####################################################################################################
+
+
+	def get_users (self):
+		"""
+			PUBLIC: get_users
+			-----------------
+			constructs self.u_df from all available 
+			calendar dataframes 
+		"""
+		self.u_df = self.user_analysis.extract_users (self.storage_delegate.iter_calendar_dfs)
+
+
+
+	####################################################################################################
+	######################[ --- Training --- ]##########################################################
+	####################################################################################################
+
 	def get_corpus (self, df_type, colname):
 		"""
 			PRIVATE: get_corpus
@@ -43,10 +66,10 @@ class SpotOn:
 		"""
 		#=====[ Step 1: assert type is calendar or activitie	]=====
 		print_status ("get_corpus", "parsing args")
-		assert (df_type == 'calendar' or df_type =='activity')
-		if df_type == 'calendar':
+		assert (df_type == 'calendars' or df_type =='activities')
+		if df_type == 'calendars':
 			iter_function = self.storage_delegate.iter_calendar_dfs
-		elif df_type == 'activity':
+		elif df_type == 'activities':
 			iter_function = self.storage_delegate.iter_activity_dfs
 
 
@@ -55,7 +78,7 @@ class SpotOn:
 		texts = []
 		for df in iter_function ():
 			print_inner_status ("assembling texts", "next text")
-			texts += [t for t in list (df[colname]) if type(t) == list]c
+			texts += [t for t in list (df[colname]) if type(t) == list]
 		print texts[0]
 
 
@@ -71,27 +94,18 @@ class SpotOn:
 		return corpus, dictionary
 
 
-
-
-
-
-
-
-
-	####################################################################################################
-	######################[ --- Training --- ]##########################################################
-	####################################################################################################
-
-	def train_semantic_analysis (self):
+	def train_semantic_analysis (self, corpus):
 		"""
 			PUBLIC: train_semantic_analysis
 			-------------------------------
 			trains self.semantic_analysis 
 		"""
-		#=====[ Step 1: iterate through activities	]=====
-		for activity_df in self.storage_delegate.iter_activity_dfs ():
-			self.semantic_analysis.update_lda (activity_df)
+		print_header ("TRAINING SEMANTIC ANALYSIS")
 
+		#=====[ Step 1: get the corpus	]=====
+		corpus, dictionary = self.get_corpus ('activities', 'name')
+
+		#=====[ Step 2: train tf.idf	]=====
 
 
 
@@ -116,7 +130,8 @@ class SpotOn:
 if __name__ == "__main__":
 
 	so = SpotOn ()
-	corpus, dictionary = so.get_corpus ('activity', 'name')
+	# so.get_users ()
+	corpus, dictionary = so.get_corpus ('activities', 'name')
 
 
 	# so.semantic_analysis.load_word2vec_model ('../data/models/word2vec_model')

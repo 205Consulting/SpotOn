@@ -539,12 +539,8 @@ class SpotOnAnalysis:
 		return {
 					'id': None,
 					'event_ids': [],
-					'event_names': [],
-					'event_descriptions': [],
 					'event_times': [],
 					'event_locations': [],
-					'event_responses': [],
-					'event_word2vecs': []
 				}
 
 

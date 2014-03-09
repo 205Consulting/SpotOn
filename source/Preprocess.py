@@ -180,7 +180,10 @@ class Preprocess:
 			given a raw json file (as received from SpotOn elasticseach indices),
 			this will return a pandas dataframe 
 		"""
-		return pd.DataFrame([j['_source'] for j in json_rep['hits']['hits']])
+		if 'hits' in json_rep.keys ():
+			return pd.DataFrame([j['_source'] for j in json_rep['hits']['hits']])
+		else:
+			return pd.DataFrame (json_rep)
 
 
 	def retain_columns (self, df, retain_cols):

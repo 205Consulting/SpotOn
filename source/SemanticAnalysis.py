@@ -4,9 +4,11 @@
 # involved in discerning semantic content from natural 
 # language
 import numpy as np
+from operator import itemgetter
 from gensim.models.ldamodel import LdaModel
 from gensim.models.tfidfmodel import TfidfModel
 from gensim.models.word2vec import Word2Vec
+from PD_LDA import PD_LDA
 
 
 class SemanticAnalysis:
@@ -22,9 +24,16 @@ class SemanticAnalysis:
 			PUBLIC: Constructor
 			-------------------
 		"""
+		#=====[ Step 1: load models	]=====
 		self.lda_model = None
 		self.tfidf_model = None
 		self.word2vec_model = None
+		self.load_models ()
+
+		#=====[ Step 2: initialize pd_lda	]=====
+		self.pd_lda = PD_LDA ()
+
+
 
 
 	####################################################################################################
@@ -57,6 +66,9 @@ class SemanticAnalysis:
 
 	def load_word2vec_model (self, filename):
 		self.word2vec_model = Word2Vec.load (filename) 
+
+
+
 
 
 
@@ -107,7 +119,8 @@ class SemanticAnalysis:
 			updates the lda model with the target columns from 
 			the passed dataframe 
 		"""
-		raise NotImplementedError
+		self.pd_lda.update_lda (df, target_columns)
+
 
 
 	def apply_lda (df, target_columns):
@@ -117,7 +130,7 @@ class SemanticAnalysis:
 			given a dataframe and a list of 'target columns', this will run LDA 
 			on all of them *combined*, add a column to df, and return it.
 		"""
-		raise NotImplementedError 
+		df = self.pd_lda.apply_lda (df, target_columns)
 
 
 
@@ -133,24 +146,38 @@ class SemanticAnalysis:
 	def get_colname_tfidf (self, target_col):
 		return target_col + 'tfidf'
 
-	def update_tfidf (df, target_columns):
+	def train_tfidf (self, dictionary, corpus):
 		"""
-			PUBLIC: update_tfidf
-			--------------------
-			updates the tfidf model with the target columns from 
-			the passed dataframe 
+			PUBLIC: train_tfidf
+			-------------------
+			trains self.tfidf_model given a gensim corpus
 		"""
-		raise NotImplementedError
+		self.dictionary = dictionary
+		self.tfidf_model = TfidfModel (corpus)
 
 
-	def apply_tfidf (df, target_columns):
+	def get_tfidf_vec (word_list):
+		"""
+			PRIVATE: get_tfidf_vec
+			----------------------
+			given a list of words, returns a vector 
+			where the ithe element is the tfidf of ith word 
+			w/r/t the document 
+		"""
+		bow_rep = dictionary.doc2bow (word_list)
+		return [t[1] for t in self.tfidf_model[bow_rep]]
+
+
+	def apply_tfidf (df, target_col):
 		"""
 			PUBLIC: apply_tfidf
 			-------------------
 			given a dataframe and a list of 'target columns', this will run LDA 
 			on all of them *concatenated* and return it as a column
 		"""
-		raise NotImplementedError 
+
+		colname_tfidf = self.get_colname_tfidf (target_col)
+		df['colname_tfidf'] = df[target_col].apply (self.get_tfidf_vec)
 
 
 
@@ -213,7 +240,7 @@ class SemanticAnalysis:
 		#=====[ Step 1: get column names	]=====
 		tfidf_colname 		= self.get_colname_tfidf (target_col)
 		w2v_colname 		= self.get_colname_w2v (target_col)
-		w2c_w_sum_colname 	= self.get_colname_w2v_w_sum (target_col)
+		w2v_w_sum_colname 	= self.get_colname_w2v_w_sum (target_col)
 
 		#=====[ Step 2: ensure requisite columns exist	]=====
 		if not tfidf_colname in df:
@@ -226,6 +253,7 @@ class SemanticAnalysis:
 			w2vs = row[w2v_colname]
 			tfidfs = row[tfidf_colname]
 			return np.sum ([])
+
 
 
 
