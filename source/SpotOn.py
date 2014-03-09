@@ -99,26 +99,6 @@ class SpotOn:
 
 
 
-	####################################################################################################
-	######################[ --- Processing --- ]########################################################s
-	####################################################################################################
-
-	def perform_semantic_analysis (self, df):
-		"""
-			PUBLIC: perform_semantic_analysis
-			---------------------------------
-			given a dataframe, this will mark it up with LDA, TFIDF and W2V,
-			then return it
-		"""
-		df = so.semantic_analysis.apply_lda (df, 'name')
-		df = so.semantic_analysis.apply_tfidf (df, 'name')
-		df = so.semantic_analysis.apply_w2v (df, 'name')
-		return df
-
-
-
-
-
 
 	####################################################################################################
 	######################[ --- Inference --- ]#########################################################
@@ -142,20 +122,21 @@ if __name__ == "__main__":
 	so = SpotOn ()
 
 	#=====[ Step 1: train semantic analysis	]=====
-	print_status ("Demo Script", "Training semantic analysis")
-	so.train_semantic_analysis ()
+	# print_header ("Demo Script - Training semantic analysis models")
+	# so.train_semantic_analysis ()
 
 	#=====[ Step 2: save semantic analysis models	]=====
-	print_status ("Demo Script", "Saving semantic analysis models")
-	so.semantic_analysis.save ()
+	# print_header ("Demo Script - Saving semantic analysis models")
+	# so.semantic_analysis.save ()
 
 	#=====[ Step 3: load semantic analysis models	]=====
-	print_status ("Demo Script", "loading semantic analysis models")	
+	print_header ("Demo Script - Loading semantic analysis models")	
 	so.semantic_analysis.load ()
 
 
 	#=====[ Step 3: apply to activity dfs	]=====
-	# print_status ("Demo Script", "Performing semantic analysis on activities")
-	# for adf in so.storage_delegate.iter_activity_dfs ():
-		# adf = so.perform_semantic_analysis (adf)
-		# print adf.iloc[0]
+	print_header ("Demo Script - Performing semantic analysis on activities")
+	for adf in so.storage_delegate.iter_activity_dfs ():
+		print adf
+		adf = so.semantic_analysis.analyze (adf, 'name')
+		print adf.iloc[0]

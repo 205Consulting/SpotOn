@@ -35,47 +35,6 @@ class SemanticAnalysis:
 
 
 
-
-	####################################################################################################
-	######################[ --- LOADING MODELS --- ]####################################################
-	####################################################################################################
-
-	def load (self):
-		"""
-			PUBLIC: load
-			------------
-			load the state
-		"""
-		print_inner_status ("SA load", "loading dictionary")
-		self.load_dictionary ()
-
-		print_inner_status ("SA load", "loading TF.IDF model")
-		self.load_tfidf_model ()
-
-		print_inner_status ("SA load", "loading LDA model ")
-		self.load_lda_model ()
-
-		print_inner_status ("SA load", "loading Word2Vec model")
-		self.load_word2vec_model ()
-
-
-	def load_dictionary (self, filename='../data/models/gensim_dictionary'):
-		self.dictionary = pickle.load (open(filename, 'r'))
-
-	def load_tfidf_model (self, filename='../data/models/tfidf_model'):
-		self.word2vec_model = Word2Vec.load (filename) 
-
-	def load_lda_model (self, filename='../data/models/lda_model'):
-		self.lda_model = LdaModel.load (filename)
-
-	def load_word2vec_model (self, filename='../data/models/word2vec_model'):
-		self.word2vec_model = Word2Vec.load (filename) 
-
-
-
-
-
-
 	####################################################################################################
 	######################[ --- SAVING MODELS --- ]#####################################################
 	####################################################################################################
@@ -110,6 +69,48 @@ class SemanticAnalysis:
 
 
 
+
+
+	####################################################################################################
+	######################[ --- LOADING MODELS --- ]####################################################
+	####################################################################################################
+
+	def load (self):
+		"""
+			PUBLIC: load
+			------------
+			load the state
+		"""
+		print_inner_status ("SA load", "loading dictionary")
+		self.load_dictionary ()
+
+		print_inner_status ("SA load", "loading TF.IDF model")
+		self.load_tfidf_model ()
+
+		print_inner_status ("SA load", "loading LDA model ")
+		self.load_lda_model ()
+
+		print_inner_status ("SA load", "loading Word2Vec model")
+		self.load_word2vec_model ()
+
+
+	def load_dictionary (self, filename='../data/models/gensim_dictionary'):
+		self.dictionary = pickle.load (open(filename, 'r'))
+
+	def load_tfidf_model (self, filename='../data/models/tfidf_model'):
+		self.tfidf_model = TfidfModel.load (filename) 
+
+	def load_lda_model (self, filename='../data/models/lda_model'):
+		self.lda_model = LdaModel.load (filename)
+
+	def load_word2vec_model (self, filename='../data/models/word2vec_model'):
+		self.word2vec_model = Word2Vec.load (filename) 
+
+
+
+
+
+
 	####################################################################################################
 	######################[ --- TRAINING MODELS --- ]###################################################
 	####################################################################################################
@@ -130,6 +131,37 @@ class SemanticAnalysis:
 		#=====[ Step 3: train lda	]=====
 		print_inner_status ("SA train", "training LDA model")		
 		self.train_lda (corpus, dictionary)
+
+
+
+
+	####################################################################################################
+	######################[ --- ANALYZING --- ]#########################################################
+	####################################################################################################
+
+	def analyze (self, df, target_col):
+		"""
+			PUBLIC: analyze
+			---------------
+			given a dataframe, applies all types of analysis to it (tf.idf, lda, w2v)
+			and returns the modified version
+		"""
+		assert (target_col in df)
+
+		#=====[ Step 1: apply tf.idf	]=====
+		print_inner_status ("SA analyze", "applying TF.IDF")
+		df = self.apply_tfidf (df, target_col)
+
+		#=====[ Step 2: apply lda	]=====
+		print_inner_status ("SA analyze", "applying LDA")
+		df = self.apply_lda (df, target_col)		
+
+		#=====[ Step 3: apply word2vec	]=====
+		print_inner_status ("SA analyze", "applying Word2Vec")
+		df = self.apply_w2v (df, target_col)	
+
+		return df
+
 
 
 
@@ -184,7 +216,6 @@ class SemanticAnalysis:
 
 
 
-
 	####################################################################################################
 	######################[ --- TF.IDF --- ]############################################################
 	####################################################################################################
@@ -221,9 +252,9 @@ class SemanticAnalysis:
 			given a dataframe and a list of 'target columns', this will run LDA 
 			on all of them *concatenated* and return it as a column
 		"""
-
 		colname_tfidf = self.get_colname_tfidf (target_col)
 		df[colname_tfidf] = df[target_col].apply (self.get_tfidf_vec)
+		return df
 
 
 
@@ -265,11 +296,6 @@ class SemanticAnalysis:
 			given a dataframe and a list of 'target columns', this will return list
 			of word vectors for their *concatenated* contents
 		"""
-		#=====[ Step 1: ensure model is in place, col exist	]=====
-		assert (self.word2vec_model)
-		assert (target_col in df)
-
-		#=====[ Step 2: get col name, add column	]=====
 		col_name = self.get_colname_w2v (target_col)
 		df[col_name] = df[target_col].apply (self.get_w2v)
 		return df
