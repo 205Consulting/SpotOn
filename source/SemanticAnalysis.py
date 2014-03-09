@@ -4,34 +4,34 @@
 # involved in discerning semantic content from natural 
 # language
 import numpy as np
+import pickle
 from operator import itemgetter
 from gensim.models.ldamodel import LdaModel
 from gensim.models.tfidfmodel import TfidfModel
 from gensim.models.word2vec import Word2Vec
-from PD_LDA import PD_LDA
+from util import print_inner_status
+
 
 
 class SemanticAnalysis:
 
 	filenames = 	{
+						'gensim_dictionary': '../models/gensim_dictionary',
 						'lda': '../data/models/lda_model',
 						'tfidf': '../data/models/tfidf_model',
 						'word2vec': '../data/models/word2vec_model'
 					}
+	num_topics_lda = 10
 
 	def __init__ (self):
 		"""
 			PUBLIC: Constructor
 			-------------------
 		"""
-		#=====[ Step 1: load models	]=====
+		self.gensim_dictionary = None
 		self.lda_model = None
 		self.tfidf_model = None
 		self.word2vec_model = None
-		self.load_models ()
-
-		#=====[ Step 2: initialize pd_lda	]=====
-		self.pd_lda = PD_LDA ()
 
 
 
@@ -40,31 +40,35 @@ class SemanticAnalysis:
 	######################[ --- LOADING MODELS --- ]####################################################
 	####################################################################################################
 
-	def load_models (self, lda_filename=filenames['lda'], tfidf_filename=filenames['tfidf'], word2vec_filename=filenames['word2vec']):
+	def load (self):
 		"""
-			PUBLIC: load_models
-			-------------------
-			loads in the specified models
+			PUBLIC: load
+			------------
+			load the state
 		"""
-		if lda_filename:
-			self.load_lda_model (lda_filename)
+		print_inner_status ("SA load", "loading dictionary")
+		self.load_dictionary ()
 
-		if tfidf_filename:
-			self.load_tfidf_model (tfidf_filename)
+		print_inner_status ("SA load", "loading TF.IDF model")
+		self.load_tfidf_model ()
 
-		if word2vec_filename:
-			self.load_word2vec_model (word2vec_filename)
+		print_inner_status ("SA load", "loading LDA model ")
+		self.load_lda_model ()
+
+		print_inner_status ("SA load", "loading Word2Vec model")
+		self.load_word2vec_model ()
 
 
-	def load_lda_model (self, filename):
-		self.lda_model = LdaModel.load (filename)
+	def load_dictionary (self, filename='../data/models/gensim_dictionary'):
+		self.dictionary = pickle.load (open(filename, 'r'))
 
-
-	def load_tfidf_model (self, filename):
+	def load_tfidf_model (self, filename='../data/models/tfidf_model'):
 		self.word2vec_model = Word2Vec.load (filename) 
 
+	def load_lda_model (self, filename='../data/models/lda_model'):
+		self.lda_model = LdaModel.load (filename)
 
-	def load_word2vec_model (self, filename):
+	def load_word2vec_model (self, filename='../data/models/word2vec_model'):
 		self.word2vec_model = Word2Vec.load (filename) 
 
 
@@ -76,32 +80,56 @@ class SemanticAnalysis:
 	######################[ --- SAVING MODELS --- ]#####################################################
 	####################################################################################################
 
-	def save_models (self, 	lda_filename=filenames['lda'], tfidf_filename=filenames['tfidf'], word2vec_filename=filenames['word2vec']):
+	def save (self):
 		"""
-			PUBLIC: save_models
-			-------------------
-			saves all models
+			PUBLIC: save
+			------------
+			saves the state
 		"""
-		if lda_filename:
-			self.save_lda_model (lda_filename)
+		print_inner_status ("SA save", "saving dictionary")
+		self.save_dictionary ()
 
-		if tfidf_filename:
-			self.save_tfidf_model (tfidf_filename)
+		print_inner_status ("SA save", "saving TF.IDF")		
+		self.save_tfidf_model ()
 
-		if word2vec_filename:
-			self.save_word2vec_model (word2vec_filename)
-
-
-	def save_lda_model (self, filename='../models/lda_model'):
-		pickle.dump (self.lda_model, open(filename, 'w'))
+		print_inner_status ("SA save", "saving LDA")				
+		self.save_lda_model ()
 
 
-	def save_tfidf_model (self, filename='../data/word2vec/word2vec_model'):
+	def save_dictionary (self, filename='../data/models/gensim_dictionary'):
+		pickle.dump (self.dictionary, open(filename, 'w'))
+
+	def save_tfidf_model (self, filename='../data/models/tfidf_model'):
 		pickle.dump (self.tfidf_model, open(filename, 'w'))		
 
+	def save_lda_model (self, filename='../data/models/lda_model'):
+		pickle.dump (self.lda_model, open(filename, 'w'))
 
-	def save_word2vec_model (self, filename='../data/word2vec/word2vec_model'):
+	def save_word2vec_model (self, filename='../data/models/word2vec_model'):
 		self.word2vec_model = Word2Vec.load (filename) 
+
+
+
+	####################################################################################################
+	######################[ --- TRAINING MODELS --- ]###################################################
+	####################################################################################################
+
+	def train (self, corpus, dictionary):
+		"""
+			PUBLIC: train
+			-------------
+			given a corpus and a dictionary, trains all models
+		"""
+		#=====[ Step 1: save dictionary	]=====
+		self.dictionary = dictionary
+
+		#=====[ Step 2: train tf.idf	]=====
+		print_inner_status ("SA train", "training TF.IDF model")
+		self.train_tfidf (corpus, dictionary)
+
+		#=====[ Step 3: train lda	]=====
+		print_inner_status ("SA train", "training LDA model")		
+		self.train_lda (corpus, dictionary)
 
 
 
@@ -112,26 +140,44 @@ class SemanticAnalysis:
 	######################[ --- LDA --- ]###############################################################
 	####################################################################################################
 
-	def update_lda (df, target_columns):
+	def get_colname_lda (self, target_col):
+		return target_col + '_LDA'
+
+	def train_lda (self, corpus, dictionary):
 		"""
-			PUBLIC: update_lda
+			PRIVATE: train_lda
 			------------------
-			updates the lda model with the target columns from 
-			the passed dataframe 
+			given a corpus and a dictionary, this trains self.lda_model
 		"""
-		self.pd_lda.update_lda (df, target_columns)
+		self.lda_model = LdaModel(corpus, id2word=dictionary, num_topics=self.num_topics_lda)
 
 
+	def get_lda_vec (self, word_list):
+		"""
+			PRIVATE: get_lda_vec
+			--------------------
+			given a list of words, returns an lda vector characterizing 
+			it
+		"""
+		#=====[ Step 1: convert to gensim bag of words	]=====
+		gensim_bow = self.lda_model.id2word.doc2bow(word_list)
 
-	def apply_lda (df, target_columns):
+		#=====[ Step 2: get and return lda vector	]=====
+		gamma, sstats = self.lda_model.inference([gensim_bow])
+		normalized_gamma = gamma[0] / sum(gamma[0])
+		return normalized_gamma
+
+
+	def apply_lda (self, df, target_col):
 		"""
 			PUBLIC: apply_lda
-			---------------
-			given a dataframe and a list of 'target columns', this will run LDA 
-			on all of them *combined*, add a column to df, and return it.
+			-----------------
+			given a dataframe and a target column, this will run LDA 
+			on it, add a column to df, and return it.
 		"""
-		df = self.pd_lda.apply_lda (df, target_columns)
-
+		colname_lda = self.get_colname_lda (target_col)
+		df[colname_lda] = df[target_col].apply (self.get_lda_vec)
+		return df
 
 
 
@@ -144,9 +190,9 @@ class SemanticAnalysis:
 	####################################################################################################
 
 	def get_colname_tfidf (self, target_col):
-		return target_col + 'tfidf'
+		return target_col + '_TF.IDF'
 
-	def train_tfidf (self, dictionary, corpus):
+	def train_tfidf (self, corpus, dictionary):
 		"""
 			PUBLIC: train_tfidf
 			-------------------
@@ -156,7 +202,7 @@ class SemanticAnalysis:
 		self.tfidf_model = TfidfModel (corpus)
 
 
-	def get_tfidf_vec (word_list):
+	def get_tfidf_vec (self, word_list):
 		"""
 			PRIVATE: get_tfidf_vec
 			----------------------
@@ -164,11 +210,11 @@ class SemanticAnalysis:
 			where the ithe element is the tfidf of ith word 
 			w/r/t the document 
 		"""
-		bow_rep = dictionary.doc2bow (word_list)
+		bow_rep = self.dictionary.doc2bow (word_list)
 		return [t[1] for t in self.tfidf_model[bow_rep]]
 
 
-	def apply_tfidf (df, target_col):
+	def apply_tfidf (self, df, target_col):
 		"""
 			PUBLIC: apply_tfidf
 			-------------------
@@ -177,7 +223,7 @@ class SemanticAnalysis:
 		"""
 
 		colname_tfidf = self.get_colname_tfidf (target_col)
-		df['colname_tfidf'] = df[target_col].apply (self.get_tfidf_vec)
+		df[colname_tfidf] = df[target_col].apply (self.get_tfidf_vec)
 
 
 
@@ -277,7 +323,7 @@ class SemanticAnalysis:
 			df = self.apply_w2v (df, target_col)
 
 		#=====[ Step 3: compute weighted averages	]=====
-
+		pass
 
 
 

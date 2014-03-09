@@ -58,6 +58,8 @@ class PD_LDA(object):
 				return lda_model
 
 
+
+
 	####################################################################################################
 	######################[ --- TRAINING --- ]##########################################################
 	####################################################################################################
@@ -79,12 +81,22 @@ class PD_LDA(object):
 
 
 		if (self.lda_is_trained(fields)):
-			print "here"
 			return self.update_trained_lda_model(self.get_lda_model(fields), df, fields)
 		else:
 			return self.build_lda_model(df, fields)
 
 
+
+
+
+
+
+
+
+
+	####################################################################################################
+	######################[ --- APPLICATION --- ]#######################################################
+	####################################################################################################
 
 
 	def gensim_bow_to_lda (self, lda_model, gensim_bow):
@@ -129,8 +141,6 @@ class PD_LDA(object):
 
 		df[self.fields_to_string(fields) + '_lda'] = df[field].apply(lda_inference, axis=1)
 		return df
-
-
 
 
 
