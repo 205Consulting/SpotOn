@@ -2,12 +2,13 @@
 # -------------
 # container class for all others; goes from raw data 
 # to predictions for users
+import numpy as np
 import gensim
 from StorageDelegate import StorageDelegate
 from Preprocess import Preprocess
 from SemanticAnalysis import SemanticAnalysis
 from UserAnalysis import UserAnalysis
-from util import print_status, print_inner_status
+from util import print_status, print_inner_status, print_header
 
 class SpotOn:
 
@@ -20,20 +21,6 @@ class SpotOn:
 		self.storage_delegate = StorageDelegate ()
 		self.semantic_analysis = SemanticAnalysis ()
 		self.user_analysis = UserAnalysis ()
-
-
-	####################################################################################################
-	######################[ --- UTILITIES --- ]#########################################################
-	####################################################################################################
-
-	def apply_calendars (self, func, row=None):
-		"""
-			PRIVATE: apply_calendars 
-			------------------------
-			given a function and optionally a row, this will 
-			apply it to all the calendar dataframes available 
-		"""
-		raise NotImplementedError
 
 
 
@@ -53,8 +40,9 @@ class SpotOn:
 
 
 
+
 	####################################################################################################
-	######################[ --- Training --- ]##########################################################
+	######################[ --- Training  --- ]#########################################################
 	####################################################################################################
 
 	def get_corpus (self, df_type, colname):
@@ -79,7 +67,6 @@ class SpotOn:
 		for df in iter_function ():
 			print_inner_status ("assembling texts", "next text")
 			texts += [t for t in list (df[colname]) if type(t) == list]
-		print texts[0]
 
 
 		#=====[ Step 3: get dictionary	]=====
@@ -94,18 +81,41 @@ class SpotOn:
 		return corpus, dictionary
 
 
-	def train_semantic_analysis (self, corpus):
+	def train_semantic_analysis (self):
 		"""
 			PUBLIC: train_semantic_analysis
 			-------------------------------
 			trains self.semantic_analysis 
 		"""
-		print_header ("TRAINING SEMANTIC ANALYSIS")
-
 		#=====[ Step 1: get the corpus	]=====
+		print_status ("train_semantic_analysis", "getting corpus/dictionary")
 		corpus, dictionary = self.get_corpus ('activities', 'name')
 
-		#=====[ Step 2: train tf.idf	]=====
+		#=====[ Step 2: train ]=====
+		print_status ("train_semantic_analysis", "training semantic analysis")
+		self.semantic_analysis.train (corpus, dictionary)
+
+
+
+
+
+	####################################################################################################
+	######################[ --- Processing --- ]########################################################s
+	####################################################################################################
+
+	def perform_semantic_analysis (self, df):
+		"""
+			PUBLIC: perform_semantic_analysis
+			---------------------------------
+			given a dataframe, this will mark it up with LDA, TFIDF and W2V,
+			then return it
+		"""
+		df = so.semantic_analysis.apply_lda (df, 'name')
+		df = so.semantic_analysis.apply_tfidf (df, 'name')
+		df = so.semantic_analysis.apply_w2v (df, 'name')
+		return df
+
+
 
 
 
@@ -118,7 +128,7 @@ class SpotOn:
 		"""
 			PUBLIC: score_activities
 			------------------------
-			given a representation of a user and a representation of 
+			given a representatiof a user and a representation of 
 			a set of activities, this returns them in sorted order, 
 			along with a measure of confidence for each 
 		"""
@@ -130,11 +140,22 @@ class SpotOn:
 if __name__ == "__main__":
 
 	so = SpotOn ()
-	# so.get_users ()
-	corpus, dictionary = so.get_corpus ('activities', 'name')
+
+	#=====[ Step 1: train semantic analysis	]=====
+	print_status ("Demo Script", "Training semantic analysis")
+	so.train_semantic_analysis ()
+
+	#=====[ Step 2: save semantic analysis models	]=====
+	print_status ("Demo Script", "Saving semantic analysis models")
+	so.semantic_analysis.save ()
+
+	#=====[ Step 3: load semantic analysis models	]=====
+	print_status ("Demo Script", "loading semantic analysis models")	
+	so.semantic_analysis.load ()
 
 
-	# so.semantic_analysis.load_word2vec_model ('../data/models/word2vec_model')
-	# for activity in so.storage_delegate.iter_activity_dfs ():
-	# 	df = so.semantic_analysis.apply_w2v (activity, 'name')
-	# 	print df.iloc[0]
+	#=====[ Step 3: apply to activity dfs	]=====
+	# print_status ("Demo Script", "Performing semantic analysis on activities")
+	# for adf in so.storage_delegate.iter_activity_dfs ():
+		# adf = so.perform_semantic_analysis (adf)
+		# print adf.iloc[0]
