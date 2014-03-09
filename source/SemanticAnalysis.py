@@ -160,7 +160,20 @@ class SemanticAnalysis:
 		print_inner_status ("SA analyze", "applying Word2Vec")
 		df = self.apply_w2v (df, target_col)	
 
+		#=====[ Step 4: apply w2v weighted sum	]=====
+		print_inner_status ("SA analyze", "applying Word2Vec weighted sum")
+		df = self.apply_w2v_w_sum (df, target_col)
+
+		#=====[ Step 5: apply w2v weighted average	]=====
+		print_inner_status ("SA analyze", "applying Word2Vec weighted average")
+		df = self.apply_w2v_w_avg (df, target_col)
+
 		return df
+
+
+
+
+
 
 
 
@@ -301,7 +314,7 @@ class SemanticAnalysis:
 		return df
 
 
-	def apply_w2v_w_sum (df, target_col):
+	def apply_w2v_w_sum (self, df, target_col):
 		"""
 			PUBLIC: apply_word2vec_w_sum
 			----------------------------
@@ -320,16 +333,29 @@ class SemanticAnalysis:
 		if not w2v_colname in df:
 			df = self.apply_w2v (df, target_col)
 
-		#=====[ Step 3: compute weighted sums	]=====
+		#=====[ Step 3: define sum function	]=====
 		def weighted_w2v_sum (row):
 			w2vs = row[w2v_colname]
-			tfidfs = row[tfidf_colname]
-			return np.sum ([])
+			tfidfs = np.array(row[tfidf_colname])
+			total = np.zeros ((200,))
+
+			for i in range (len(tfidfs)):
+				if type(w2vs[i]) != type(None):
+					try:
+						total += np.multiply(np.array(w2vs[i]), tfidfs[i])
+					except:
+						print "something got fucked up..."
+			return list(total)
+
+
+		#=====[ Step 4: apply sum function	]=====
+		df[w2v_w_sum_colname] = df.apply (weighted_w2v_sum, axis=1)
+		return df
 
 
 
 
-	def apply_w2v_w_avg (df, target_columns):
+	def apply_w2v_w_avg (self, df, target_col):
 		"""
 			PUBLIC: apply_word2vec_w_avg
 			----------------------------
@@ -338,18 +364,23 @@ class SemanticAnalysis:
 			based on its tf.idf 
 		"""
 		#=====[ Step 1: get column names	]=====
-		tfidf_colname 		= self.get_colname_tfidf 	(target_col)
-		w2v_colname 		= self.get_colname_w2v (target_col)
-		w2v_w_avg_colname 	= self.get_colname_w2v_w_avg (target_col)		
+		w2v_w_sum_colname 	= self.get_colname_w2v_w_sum (target_col)		
+		w2v_w_avg_colname 	= self.get_colname_w2v_w_avg (target_col)				
 
 		#=====[ Step 2: ensure requisite columns exist	]=====
-		if not tfidf_colname in df:
-			df = self.apply_tfidf (df, target_col)
-		if not w2v_colname in df:
-			df = self.apply_w2v (df, target_col)
+		if not w2v_w_sum_colname in df:
+			df = self.apply_w2v_w_sum (df, target_col)
 
-		#=====[ Step 3: compute weighted averages	]=====
-		pass
+		#=====[ Step 3: define weighted average	]=====
+		def weighted_w2v_average (row):
+			w2v_sum = row[w2v_w_sum_colname]
+			num_elements = len(row[target_col])
+			return list(np.divide (w2v_sum, num_elements))
+
+		#=====[ Step 4: apply average function	]=====
+		df[w2v_w_avg_colname] = df.apply (weighted_w2v_average, axis=1)
+		return df
+
 
 
 

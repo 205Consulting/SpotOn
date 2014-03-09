@@ -28,7 +28,6 @@ class SpotOn:
 	######################[ --- Getting Users --- ]#########################################################
 	####################################################################################################
 
-
 	def get_users (self):
 		"""
 			PUBLIC: get_users
@@ -137,6 +136,5 @@ if __name__ == "__main__":
 	#=====[ Step 3: apply to activity dfs	]=====
 	print_header ("Demo Script - Performing semantic analysis on activities")
 	for adf in so.storage_delegate.iter_activity_dfs ():
-		print adf
 		adf = so.semantic_analysis.analyze (adf, 'name')
 		print adf.iloc[0]
