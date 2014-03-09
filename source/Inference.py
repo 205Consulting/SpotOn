@@ -4,6 +4,9 @@
 from Preprocess import Preprocess
 from scipy.spatial.distance import cosine
 from scipy import stats
+from sklearn.cluster import KMeans()
+import numpy as np
+from collections import defaultdict
 
 class Inference(object):
 	def __init__(self, lda_model, topic_distributions, word2vec, feature_weights=[1 0]):
@@ -109,6 +112,34 @@ class Inference(object):
 	def cosine_similarity(self, vec_one, vec_two):
 		return (1 - cosine(vec_one, vec_two))
 
+	def k_activities_per_cluster(self, index_to_cluster, weighted_scores, k=None):
+		'''
+			function: k_activities_per_cluster
+
+			params: index_to_cluster - mapping index of weighted scores to the cluster that activity was in
+					weighted_scores - scores for each activity
+					k - number of activities in each cluster to take
+					( if k is none, then don't do any of this k-means stuff )
+			returns: list of indices into the activities dataframe listed in order of their scores
+		'''
+		# if k is none, then just return the sorted indices of weighted_scores
+		if k=None:
+			return np.argsort(weighted_scores)[::-1]
+		else:
+			#map cluster index to number of elements of this cluster used
+			cluster_mapping = defaultdict(int)
+			to_return = []
+			for index in np.argsort(weighted_scores)[::-1]:
+				# check if we have too many of this cluster yet
+				if cluster_mapping[index_to_cluster[index]] < k:
+					to_return.append(index)
+					# add one to the cluster mapping
+					cluster_mapping[index_to_cluster[index]] += 1
+				else:
+					continue
+			return to_return
+
+
 
 
 
@@ -123,7 +154,9 @@ class Inference(object):
 					user_w2v_field - field in the user row with the word2vec vector
 					activities_w2v_field - field in the activities df with the word2vec vector
 
-			returns: a list of scores, the i'th score being the score for the i'th activity
+			returns: a list of indices into the activities dataframe, in order of score
+
+			notes: assumed LDA vectors in the activities dataframe is in column activities_field + '_lda'
 		"""
 
 		#1: get user's LDA vector and user's word2vec vector
@@ -153,8 +186,15 @@ class Inference(object):
 		#6: apply weights correctly
 		weighted_scores = self.apply_weights([prob_gen, w2v_cosine_similarity])
 
-		#7: return weighted_scores
-		return weighted_scores
+		#7: run k-means on concatenated LDA + w2v scores
+		concat_LDA_w2v = []
+		for i in range(len(activities_df)):
+			concat_LDA_w2v.append((activities_df.iloc[i][activities_field + '_lda']) + word_to_vec_vectors[i])
+
+		kmeans = KMeans(n_clusters=5)
+		fit_predicted = kmeans.fit_predict(concat_LDA_w2v)
+
+		return self.k_activities_per_cluster(fit_predicted, weighted_scores, k=1)
 
 
 
