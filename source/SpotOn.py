@@ -3,11 +3,13 @@
 # container class for all others; goes from raw data 
 # to predictions for users
 import numpy as np
+import pandas as pd
 import gensim
 from StorageDelegate import StorageDelegate
 from Preprocess import Preprocess
 from SemanticAnalysis import SemanticAnalysis
 from UserAnalysis import UserAnalysis
+from Inference import Inference
 from util import print_status, print_inner_status, print_header
 
 class SpotOn:
@@ -21,6 +23,7 @@ class SpotOn:
 		self.storage_delegate = StorageDelegate ()
 		self.semantic_analysis = SemanticAnalysis ()
 		self.user_analysis = UserAnalysis ()
+		self.inference = Inference 
 
 
 
@@ -36,8 +39,10 @@ class SpotOn:
 			calendar dataframes 
 		"""
 		self.u_df = self.user_analysis.extract_users (self.storage_delegate.iter_calendar_dfs)
+		self.u_df = self.semantic_analysis.analyze (self.u_df, 'all_event_names')
 
-
+	def load_users (self, filepath='../data/pandas/users/users.df'):
+		self.u_df = pd.read_pickle(filepath)
 
 
 	####################################################################################################
@@ -107,11 +112,16 @@ class SpotOn:
 		"""
 			PUBLIC: score_activities
 			------------------------
-			given a representatiof a user and a representation of 
-			a set of activities, this returns them in sorted order, 
-			along with a measure of confidence for each 
+			given a representation of a user row and dataframe 
+			of activities, this returns them in scored fashion
 		"""
-		pass
+		#=====[ Step 1: create inference	]=====
+		inference = Inference (self.semantic_analysis.lda_model, self.semantic_analysis.lda_model_topic_dist)
+
+		#=====[ Step 2: predict	]=====
+		print inference.recommend (user, activities, 'name_LDA', 'words', 'name_W2V', 'name_W2V')
+
+
 
 
 
@@ -132,9 +142,27 @@ if __name__ == "__main__":
 	print_header ("Demo Script - Loading semantic analysis models")	
 	so.semantic_analysis.load ()
 
+	#=====[ Step 4: load users	]=====
+	print_header ("Demo Script - Getting users")	
+	# so.get_users ()
+	so.load_users ()
+
 
 	#=====[ Step 3: apply to activity dfs	]=====
 	print_header ("Demo Script - Performing semantic analysis on activities")
 	for adf in so.storage_delegate.iter_activity_dfs ():
+
+		#=====[ Semantic analysis on adf	]=====
 		adf = so.semantic_analysis.analyze (adf, 'name')
-		print adf.iloc[0]
+
+		#=====[ Construct inference	]=====
+		inf = Inference (so.semantic_analysis.lda_model, so.semantic_analysis.lda_model_topic_dist)
+
+		#=====[ Recommend	]=====
+		print inf.recommend (so.u_df.iloc[3], adf[:100], 'all_event_names_LDA', 'name', 'all_event_names_W2V', 'name_W2V')
+
+
+
+
+
+

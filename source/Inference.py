@@ -4,12 +4,14 @@
 from Preprocess import Preprocess
 from scipy.spatial.distance import cosine
 from scipy import stats
-from sklearn.cluster import KMeans()
+from sklearn.cluster import KMeans
 import numpy as np
 from collections import defaultdict
 
 class Inference(object):
-	def __init__(self, lda_model, topic_distributions, word2vec, feature_weights=[1 0]):
+
+
+	def __init__(self, lda_model, topic_distributions, feature_weights=[1, 0]):
 		self.lda_model = lda_model
 		self.topic_distributions = topic_distributions
 		self.feature_weights = feature_weights
@@ -123,7 +125,7 @@ class Inference(object):
 			returns: list of indices into the activities dataframe listed in order of their scores
 		'''
 		# if k is none, then just return the sorted indices of weighted_scores
-		if k=None:
+		if k == None:
 			return np.argsort(weighted_scores)[::-1]
 		else:
 			#map cluster index to number of elements of this cluster used
@@ -178,23 +180,26 @@ class Inference(object):
 		for i in range(len(activities_df)):
 			word_to_vec_vectors.append(activities_df.iloc[i][activities_w2v_field])
 
+
+		w2v_cosine_similarity = [0 for i in range(len(activities_df))]
 		#5: find the cosine similarity between the user's w2v and the activity's
-		w2v_cosine_similarity = []
-		for i in range(len(word_to_vec_vectors)):
-			w2v_cosine_similarity.append(self.cosine_similarity(user_w2v_vector, word_to_vec_vectors[i]))
+		# w2v_cosine_similarity = []
+		# for i in range(len(word_to_vec_vectors)):
+			# w2v_cosine_similarity.append(self.cosine_similarity(user_w2v_vector, word_to_vec_vectors[i]))
 
 		#6: apply weights correctly
 		weighted_scores = self.apply_weights([prob_gen, w2v_cosine_similarity])
+		return weighted_scores
 
 		#7: run k-means on concatenated LDA + w2v scores
-		concat_LDA_w2v = []
-		for i in range(len(activities_df)):
-			concat_LDA_w2v.append((activities_df.iloc[i][activities_field + '_lda']) + word_to_vec_vectors[i])
+		# concat_LDA_w2v = []
+		# for i in range(len(activities_df)):
+			# concat_LDA_w2v.append((activities_df.iloc[i][activities_field + '_LDA']) + word_to_vec_vectors[i])
 
-		kmeans = KMeans(n_clusters=5)
-		fit_predicted = kmeans.fit_predict(concat_LDA_w2v)
+		# kmeans = KMeans(n_clusters=5)
+		# fit_predicted = kmeans.fit_predict(concat_LDA_w2v)
 
-		return self.k_activities_per_cluster(fit_predicted, weighted_scores, k=1)
+		# return self.k_activities_per_cluster(fit_predicted, weighted_scores, k=None)
 
 
 

@@ -102,6 +102,7 @@ class SemanticAnalysis:
 
 	def load_lda_model (self, filename='../data/models/lda_model'):
 		self.lda_model = LdaModel.load (filename)
+		self.lda_model_topic_dist = self.find_per_topic_word_distributions ()
 
 	def load_word2vec_model (self, filename='../data/models/word2vec_model'):
 		self.word2vec_model = Word2Vec.load (filename) 
@@ -188,6 +189,31 @@ class SemanticAnalysis:
 	def get_colname_lda (self, target_col):
 		return target_col + '_LDA'
 
+
+	def find_per_topic_word_distributions(self):
+		'''
+			function: find_per_topic_word_distributions
+
+			params: lda_model - lda model to find distributions for
+
+			returns: a list of dicts, the i'th dict mapping words -> probabilities for the i'th topic
+		'''
+		dist = []
+		# 1: iterate through topics
+		for topic in range(self.lda_model.num_topics): 
+			topic_dist_dict = {}
+			# 2: get probability distribution
+			topic_dist = self.lda_model.state.get_lambda()[topic] 
+			# 3: normalize to real probability distribution
+			topic_dist = topic_dist / topic_dist.sum()
+			for i in range(len(topic_dist)):
+				# 4: map the string id of the node to the probability (self.dict goes from gensim's id -> my string id)
+				topic_dist_dict[self.lda_model.id2word[i]] = topic_dist[i] 
+			# 5: append to array of dicts
+			dist.append(topic_dist_dict) 
+		return dist
+
+
 	def train_lda (self, corpus, dictionary):
 		"""
 			PRIVATE: train_lda
@@ -195,6 +221,7 @@ class SemanticAnalysis:
 			given a corpus and a dictionary, this trains self.lda_model
 		"""
 		self.lda_model = LdaModel(corpus, id2word=dictionary, num_topics=self.num_topics_lda)
+		self.lda_model_topic_dist = self.find_per_topic_word_distributions ()
 
 
 	def get_lda_vec (self, word_list):

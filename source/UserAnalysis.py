@@ -24,6 +24,8 @@ class UserAnalysis:
 					'event_ids': [],
 					'event_start_dates': [],
 					'event_locations': [],
+					'all_event_names': [],				# all concatenated words ever
+					'all_event_words': []
 				}
 
 
@@ -47,6 +49,10 @@ class UserAnalysis:
 		user_rep['event_locations'].append (event['location'])		# Note: most are timezone
 		# user_rep['event_responses'].append (event['response'])		# Note: only considering start time		
 		# user_rep['event_word2vecs'].append (event['word2vec'])
+		if type(event['name']) == list:
+			user_rep['all_event_names'] += event['name']
+		if type(event['description']) == list:
+			user_rep['all_event_words'] += event['description']
 
 
 	def extract_users (self, calendar_df_iterator):
