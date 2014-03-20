@@ -5,13 +5,23 @@
 # Winter 2014
 # -------------------------------------------------------------------------------- #
 
-0. To Do:
----------
-• Remove numbers from calendar event titles
-• 
-• find correspondences between activities_df and calendar_events_df
+==============
+II. Preprocess
+==============
+• To initialize: 
 
+	> from Preprocess import Preprocess
+	> pre = Preprocess ()
 
+• To correctly format an object containing calendar events:
+	[ce_obj is either a pandas dataframe or *raw* json from their database]
+	
+	> ce_df = pre.preprocess_ce (ce_obj)
+
+• To correctly format an object containing activities
+	[a_obj is either a pandas dataframe or a *raw* json from their database]
+
+	> a_df = pre.preprocess_a (a_obj)
 
 
 
