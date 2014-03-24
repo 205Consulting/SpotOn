@@ -12,7 +12,8 @@ if __name__ == "__main__":
 	so = SpotOn ()
 	so.semantic_analysis.load ()
 
-
+	#=====[ Step 2: get a list of all users	]=====
+	
 
 
 	
