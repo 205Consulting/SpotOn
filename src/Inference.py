@@ -138,6 +138,7 @@ class Inference(object):
 			function: get_user_representation_from_activities
 
 			params: user_activities - dataframe of activities belonging to the user
+					activities_field - field with words in the activities df.
 
 			returns: a dict containing a concatentated list of words including all the words belonging to the user
 					 and an LDA vector
