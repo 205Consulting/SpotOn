@@ -133,7 +133,7 @@ class Inference(object):
 
 
 
-	def get_user_representation_from_activities(self,user_activities):
+	def get_user_representation_from_activities(self,user_activities, activities_field):
 		'''
 			function: get_user_representation_from_activities
 
@@ -144,7 +144,7 @@ class Inference(object):
 		'''
 		user_word_rep = []
 		# 1: iterate through the activities, adding every word to the overall list
-		for list_of_words in user_activities['name']: #NOTE: 'name' SHOULD BE WHATEVER CONTAINES THE WORDS!
+		for list_of_words in user_activities[activities_fiel]: #NOTE: 'name' SHOULD BE WHATEVER CONTAINES THE WORDS!
 			# 2: check that this element is not nan
 			if type(list_of_words) == list:
 				user_word_rep += list_of_words
@@ -180,7 +180,7 @@ class Inference(object):
 		"""
 
 		#=====[ Step 1: go from user_activities to a user representation	]=====
-		user_representation = self.get_user_representation_from_activities(user_activities)
+		user_representation = self.get_user_representation_from_activities(user_activities, activities_field)
 
 		# 2: get recommendation scores
 		weighted_scores = self.recommend_old(user_representation, recommend_activities, 'lda_vec', activities_field)
