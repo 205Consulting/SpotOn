@@ -4,6 +4,7 @@
 # that higher-level analysis can take place on it
 import os
 import sys
+import re
 import json
 import pickle
 import pandas as pd
@@ -253,12 +254,29 @@ class Preprocess:
 		"""
 			PRIVATE: tokenize_remove_stopwords
 			----------------------------------
-			given a string s, tokenizes, converts to lower case, removes stopwords and numbers
+			given a string s:
+			- tokenizes 
+			- converts to lower case
+			- removes stopwords
+			- removes words with digits, 
 		"""
+		#=====[ Function: indicator for containing digits	]=====
+		_digits = re.compile('\d')
+		def contains_digits(word):
+			return bool(_digits.search(word))
+		
+		#=====[ Function: indicator for valid words to include	]=====
+		def is_valid (word):
+			if len(word) > 1:
+				if not word in stopwords.words ('english'):
+					if not contains_digits(word):
+						return True
+			return False
+
 		if type(text) == type('') or type(text) == type(u''):
-			return [w.lower() for w in self.tokenizer.tokenize(text) if not w.lower() in stopwords.words('english') and not w.isdigit ()]
+			return [w.lower() for w in self.tokenizer.tokenize(text) if is_valid(w.lower())]
 		if type(text) == list:
-			return [w for w in text if not w in stopwords.words ('english') and not w.isdigit ()]
+			return [w for w in text if is_valid(w)]
 
 
 	def reformat_name (self, df):

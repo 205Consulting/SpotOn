@@ -42,10 +42,10 @@ class UserAnalysis:
 		user_rep = self.user_representations[user_id]
 
 		#=====[ Step 3: add relevant data	]=====
-		user_rep['id'] = user_id
-		user_rep['event_ids'].append (event['id'])
-		# user_rep['event_names'].append (event['name'])					# Note: tokenize this?
-		# user_rep['event_descriptions'].append (event['description'])	# Note: tokenize this?
+		# user_rep['id'] = user_id
+		# user_rep['event_ids'].append (event['id'])
+		user_rep['event_names'].append (event['name'])					# Note: tokenize this?
+		user_rep['event_descriptions'].append (event['description'])	# Note: tokenize this?
 		user_rep['event_start_dates'].append (event['date_start'])		# Note: only considering start time
 		user_rep['event_locations'].append (event['location'])		# Note: most are timezone
 		# user_rep['event_responses'].append (event['response'])		# Note: only considering start time		

@@ -25,6 +25,7 @@ class SpotOn:
 			constructs member objects
 		"""
 		#=====[ Step 1: create member objects	]=====
+		self.preprocess = Preprocess ()
 		self.storage_delegate = StorageDelegate ()
 		self.semantic_analysis = SemanticAnalysis ()
 		self.user_analysis = UserAnalysis ()
@@ -140,7 +141,7 @@ class SpotOn:
 	######################[ --- Inference --- ]#########################################################
 	####################################################################################################
 
-	def score_activities (self, user_events_list_json, activities_json):
+	def score_activities (self, user_activities, recommend_activities):
 		"""
 			PUBLIC: score_activities
 			------------------------
@@ -148,13 +149,13 @@ class SpotOn:
 			(activities, scores) in a sorted list
 		"""
 		#=====[ Step 1: preprocess json inputs	]=====
-		user_events_df = self.preprocess.preprocess_ce (user_events_list_json)
-		activities_df = self.preprocess_ce (activities_json)
+		user_events_df = self.preprocess.preprocess_a (user_activities)
+		activities_df = self.preprocess.preprocess_a (recommend_activities)
 
 		#=====[ Step 2: construct a user from user_events_df	]=====
-		def f(x):
-			yield x
-		users = self.user_analysis.extract_users (f(user_events_df))
+		def f():
+			yield user_events_df
+		users = self.user_analysis.extract_users (f)
 		assert len(users) == 1
 		user = users.iloc[0]
 

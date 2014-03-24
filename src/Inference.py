@@ -133,9 +133,19 @@ class Inference(object):
 
 
 
+	def score_activities (self, user_activities, recommend_activities):
+		"""
+			PUBLIC: score_activities
+			------------------------
+			given two dataframes, the first being of a given user's activities,
+			the second of activities to recommend, this returns a list of scores 
+		"""
+
+		#=====[ Step 1: 	]=====
 
 
-	def recommend(self, user_row, activities_df, user_lda_field, activities_field, user_w2v_field, activities_w2v_field):
+
+	def recommend_old(self, user_row, activities_df, user_lda_field, activities_field, user_w2v_field, activities_w2v_field):
 		"""
 			function: recommend
 

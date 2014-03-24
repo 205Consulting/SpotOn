@@ -16,7 +16,7 @@ from util import *
 class SemanticAnalysis:
 
 	#==========[ PARAMETERS	]==========
-	num_topics_lda 	= 20
+	num_topics_lda 	= 15
 	filenames 		= {
 						'gensim_dictionary': '../models/gensim_dictionary',
 						'lda': '../data/models/lda_model',

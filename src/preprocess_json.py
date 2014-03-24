@@ -2,7 +2,8 @@
 # -----------------------
 # script to convert raw json of activities to 
 # a large pandas dataframe. call as 'ipython -i preprocess_json.py'
-# if you want to pickle the resulting dataframe afterwards
+# if you want to pickle or play with the resulting
+# dataframe afterwards
 import pickle
 import json
 from Preprocess import Preprocess
