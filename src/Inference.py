@@ -6,7 +6,7 @@ from sklearn.cluster import KMeans
 import numpy as np
 from collections import defaultdict
 from Preprocess import Preprocess
-
+import json
 class Inference(object):
 
 
@@ -133,7 +133,45 @@ class Inference(object):
 
 
 
-	def score_activities (self, user_activities, recommend_activities):
+	def get_user_representation_from_activities(self,user_activities):
+		'''
+			function: get_user_representation_from_activities
+
+			params: user_activities - dataframe of activities belonging to the user
+
+			returns: a dict containing a concatentated list of words including all the words belonging to the user
+					 and an LDA vector
+		'''
+		user_word_rep = []
+		# 1: iterate through the activities, adding every word to the overall list
+		for list_of_words in user_activities['name']: #NOTE: 'name' SHOULD BE WHATEVER CONTAINES THE WORDS!
+			# 2: check that this element is not nan
+			if type(list_of_words) == list:
+				user_word_rep += list_of_words
+		# 3: get LDA vector
+		lda_vector = self.get_lda_vec(user_word_rep)
+
+		# 4: return dict
+		return {'words': user_word_rep, 'lda_vec': lda_vector}
+
+
+	def get_lda_vec (self, word_list):
+		"""
+			PRIVATE: get_lda_vec
+			--------------------
+			given a list of words, returns an lda vector characterizing 
+			it
+		"""
+		#=====[ Step 1: convert to gensim bag of words	]=====
+		gensim_bow = self.lda_model.id2word.doc2bow(word_list)
+
+		#=====[ Step 2: get and return lda vector	]=====
+		gamma, sstats = self.lda_model.inference([gensim_bow])
+		normalized_gamma = gamma[0] / sum(gamma[0])
+		return normalized_gamma
+
+
+	def score_activities (self, user_activities, recommend_activities, activities_field):
 		"""
 			PUBLIC: score_activities
 			------------------------
@@ -141,8 +179,14 @@ class Inference(object):
 			the second of activities to recommend, this returns a list of scores 
 		"""
 
-		#=====[ Step 1: 	]=====
+		#=====[ Step 1: go from user_activities to a user representation	]=====
+		user_representation = self.get_user_representation_from_activities(user_activities)
 
+		# 2: get recommendation scores
+		weighted_scores = self.recommend_old(user_representation, recommend_activities, 'lda_vec', activities_field)
+
+		# 3: TODO: sort scores
+		TODOTODOTODO!!!
 
 
 	def recommend_old(self, user_row, activities_df, user_lda_field, activities_field, user_w2v_field, activities_w2v_field):
@@ -163,7 +207,7 @@ class Inference(object):
 
 		#1: get user's LDA vector and user's word2vec vector
 		user_lda_vector = user_row[user_lda_field]
-		user_w2v_vector = user_row[user_w2v_field]
+		# user_w2v_vector = user_row[user_w2v_field]
 
 		#2: create a list of lists, the i'th list being the words in the the i'th activity
 		word_vectors = []
@@ -176,9 +220,9 @@ class Inference(object):
 			prob_gen.append(self.probability_of_generation(user_lda_vector, word_vectors[i]))
 
 		#4: create a list of lists, the i'th list being the word2vec vector in the i'th activity
-		word_to_vec_vectors = []
-		for i in range(len(activities_df)):
-			word_to_vec_vectors.append(activities_df.iloc[i][activities_w2v_field])
+		# word_to_vec_vectors = []
+		# for i in range(len(activities_df)):
+		# 	word_to_vec_vectors.append(activities_df.iloc[i][activities_w2v_field])
 
 
 		w2v_cosine_similarity = [0 for i in range(len(activities_df))]
