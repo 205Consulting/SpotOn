@@ -185,8 +185,8 @@ class Inference(object):
 		# 2: get recommendation scores
 		weighted_scores = self.recommend_old(user_representation, recommend_activities, 'lda_vec', activities_field)
 
-		# 3: TODO: sort scores
-		TODOTODOTODO!!!
+		# 3: TODO: how should we sort scores? currently returns the indices into "recommend_activites" df
+		return np.argsort(weighted_scores)[::-1]
 
 
 	def recommend_old(self, user_row, activities_df, user_lda_field, activities_field, user_w2v_field, activities_w2v_field):
