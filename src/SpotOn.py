@@ -29,11 +29,24 @@ class SpotOn:
 		self.storage_delegate = StorageDelegate ()
 		self.semantic_analysis = SemanticAnalysis ()
 		self.user_analysis = UserAnalysis ()
-		# self.inference = Inference ()
+		self.inference = None
 
 
+	def load (self):
+		"""
+			PUBLIC: load 
+			------------
+			loads in all parameters 
+		"""
+		#=====[ Step 1: load in semantic analysis	]=====
+		print_status ("Initialization", "Loading ML parameters (Begin)")
+		self.semantic_analysis.load ()
+		print_status ("Initialization", "Loading ML parameters (End)")		
 
-
+		#=====[ Step 2: transfer over models to inference	]=====
+		print_status ("Initialization", "Constructing Inference instance (Begin)")
+		self.inference = Inference (self.semantic_analysis.lda_model, self.semantic_analysis.lda_model_topics)
+		print_status ("Initialization", "Constructing Inference instance (End)")
 
 
 
@@ -141,7 +154,7 @@ class SpotOn:
 	######################[ --- Inference --- ]#########################################################
 	####################################################################################################
 
-	def score_activities (self, user_activities, recommend_activities):
+	def score_activities_old (self, user_activities, recommend_activities):
 		"""
 			PUBLIC: score_activities
 			------------------------
@@ -164,6 +177,22 @@ class SpotOn:
 
 		#=====[ Step 4: return sorted list of activity, score	]=====
 		return sorted(zip(activities_json, scores), key=lambda x: x[1], reverse=True)
+
+
+	def score_activities (self, user_activities, recommend_activities):
+		"""
+			PUBLIC: score_activities
+			------------------------
+			Given a user and a list of activities, both represented as json, this will return 
+			(activities, scores) in a sorted list
+		"""
+		#=====[ Step 1: preprocess user_activities and recommend_activities	]=====
+		user_activities = self.preprocess.preprocess_a (user_activities)
+		recommend_activities = self.preprocess.preprocess_a (recommend_activities)
+
+		#=====[ Step 2: get scores for each one	]=====
+		scores = self.inference.score_activities (user_activities, recommend_activities)
+		return scores
 
 
 	####################################################################################################

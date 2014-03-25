@@ -62,7 +62,8 @@ a_retain_cols = [
 					'type', 
 					'response', 
 					'uid', 
-					'user'
+					'user',
+					'description'
 					#need something for date/time in here
 				]
 
@@ -126,23 +127,23 @@ class Preprocess:
 			pandas dataframe), this will return a correctly-formatted version
 		"""
 		#=====[ Step 1: a -> dataframe representation	]=====
-		print_status ("preprocess_a", "converting to dataframe representation")
+		# print_status ("preprocess_a", "converting to dataframe representation")
 		df = self.get_dataframe_rep (a)
 
 		#=====[ Step 2: apply formatting operations	]=====
-		print_status ("preprocess_a", "dropping unnecessary columns")
+		# print_status ("preprocess_a", "dropping unnecessary columns")
 		df = self.retain_columns (df, a_retain_cols)
 
-		print_status ("preprocess_a", "reformatting location")
+		# print_status ("preprocess_a", "reformatting location")
 		df = self.reformat_location (df)
 
-		print_status ("preprocess_a", "filtering by location")
+		# print_status ("preprocess_a", "filtering by location")
 		df = self.filter_location (df)
 
-		print_status ("preprocess_a", "reformatting name")
+		# print_status ("preprocess_a", "reformatting name")
 		df = self.reformat_name (df)
 
-		print_status ("preprocess_a", "reformatting words")
+		# print_status ("preprocess_a", "reformatting words")
 		df = self.reformat_words(df)
 
 		return df
@@ -310,6 +311,8 @@ class Preprocess:
 			converts the given dataframe's 'words' column so that it is tokenized,
 			lowercase, not stopwords 
 		"""
-		if 'words'in df:
-			df['words'] = df['words'].apply(self.tokenize_remove_stopwords)
+		if 'description' in df:
+			df['words'] = df['description'].apply (self.tokenize_remove_stopwords)
+		else:
+			df['words'] = df['words'].apply (self.tokenize_remove_stopwords)
 		return df

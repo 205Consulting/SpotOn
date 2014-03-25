@@ -1,12 +1,14 @@
 # Class: inference
 # ----------------
+import json
+import numpy as np
 from scipy.spatial.distance import cosine
 from scipy import stats
 from sklearn.cluster import KMeans
-import numpy as np
 from collections import defaultdict
 from Preprocess import Preprocess
-import json
+from util import *
+
 class Inference(object):
 
 
@@ -132,8 +134,22 @@ class Inference(object):
 			return to_return
 
 
+	def extract_doc_from_activity (self, activity_row):
+		"""
+			PRIVATE: extract_doc_from_activity
+			----------------------------------
+			given an activity represented as a series, this returns 
+			a list of words representing it. 
+		"""
+		doc = []
+		if activity_row['name']:
+			doc += activity_row['name']
+		if activity_row['words']:
+			doc += activity_row['words']
+		return doc
 
-	def get_user_representation_from_activities(self,user_activities, activities_field):
+
+	def get_user_representation_from_activities (self, user_activities_df):
 		'''
 			function: get_user_representation_from_activities
 
@@ -143,17 +159,16 @@ class Inference(object):
 			returns: a dict containing a concatentated list of words including all the words belonging to the user
 					 and an LDA vector
 		'''
-		user_word_rep = []
-		# 1: iterate through the activities, adding every word to the overall list
-		for list_of_words in user_activities[activities_fiel]: #NOTE: 'name' SHOULD BE WHATEVER CONTAINES THE WORDS!
-			# 2: check that this element is not nan
-			if type(list_of_words) == list:
-				user_word_rep += list_of_words
-		# 3: get LDA vector
-		lda_vector = self.get_lda_vec(user_word_rep)
+		#=====[ Step 1: get a document representing the user	]=====
+		user_document = []
+		for i in range(len(user_activities_df)):
+			user_document += self.extract_doc_from_activity (user_activities_df.iloc[i])
 
-		# 4: return dict
-		return {'words': user_word_rep, 'lda_vec': lda_vector}
+		#=====[ Step 2: get an LDA vector for it	]=====
+		lda_vector = self.get_lda_vec(user_document)
+
+		#=====[ Step 3: construct and return a representation of the user	]=====
+		return {'words': user_document, 'lda_vec': lda_vector}
 
 
 	def get_lda_vec (self, word_list):
@@ -172,25 +187,24 @@ class Inference(object):
 		return normalized_gamma
 
 
-	def score_activities (self, user_activities, recommend_activities, activities_field):
+	def score_activities (self, user_activities, recommend_activities):
 		"""
 			PUBLIC: score_activities
 			------------------------
 			given two dataframes, the first being of a given user's activities,
 			the second of activities to recommend, this returns a list of scores 
 		"""
-
 		#=====[ Step 1: go from user_activities to a user representation	]=====
-		user_representation = self.get_user_representation_from_activities(user_activities, activities_field)
+		user_rep = self.get_user_representation_from_activities(user_activities)
 
-		# 2: get recommendation scores
-		weighted_scores = self.recommend_old(user_representation, recommend_activities, 'lda_vec', activities_field)
+		#=====[ Step 2: get recommendation scores	]=====
+		weighted_scores = self.recommend (user_rep, recommend_activities)
 
 		# 3: TODO: how should we sort scores? currently returns the indices into "recommend_activites" df
 		return np.argsort(weighted_scores)[::-1]
 
 
-	def recommend_old(self, user_row, activities_df, user_lda_field, activities_field, user_w2v_field, activities_w2v_field):
+	def recommend (self, user_rep, activities_df):
 		"""
 			function: recommend
 
@@ -207,13 +221,13 @@ class Inference(object):
 		"""
 
 		#1: get user's LDA vector and user's word2vec vector
-		user_lda_vector = user_row[user_lda_field]
+		user_lda_vector = user_rep['lda_vec']
 		# user_w2v_vector = user_row[user_w2v_field]
 
 		#2: create a list of lists, the i'th list being the words in the the i'th activity
 		word_vectors = []
 		for i in range(len(activities_df)):
-			word_vectors.append(activities_df.iloc[i][activities_field])
+			word_vectors.append (self.extract_doc_from_activity(activities_df.iloc[i]))
 
 		#3: find probability of generation for each activity
 		prob_gen = []
@@ -225,7 +239,6 @@ class Inference(object):
 		# for i in range(len(activities_df)):
 		# 	word_to_vec_vectors.append(activities_df.iloc[i][activities_w2v_field])
 
-
 		w2v_cosine_similarity = [0 for i in range(len(activities_df))]
 		#5: find the cosine similarity between the user's w2v and the activity's
 		# w2v_cosine_similarity = []
@@ -233,8 +246,8 @@ class Inference(object):
 			# w2v_cosine_similarity.append(self.cosine_similarity(user_w2v_vector, word_to_vec_vectors[i]))
 
 		#6: apply weights correctly
-		weighted_scores = self.apply_weights([prob_gen, w2v_cosine_similarity])
-		return weighted_scores
+		# weighted_scores = self.apply_weights([prob_gen, w2v_cosine_similarity])
+		return prob_gen
 
 		#7: run k-means on concatenated LDA + w2v scores
 		# concat_LDA_w2v = []

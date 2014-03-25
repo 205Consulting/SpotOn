@@ -9,26 +9,36 @@ from util import *
 if __name__ == "__main__":
 	print_header ("RECOMMENDATION DEMO")
 
-	#=====[ Step 1: construct SpotOn object	]=====
+	#=====[ Step 1: construct/load SpotOn object	]=====
 	so = SpotOn ()
-	so.semantic_analysis.load ()
+	so.load ()
 
 	#=====[ Step 2: get user, activities ]=====
 	all_activities = json.load (open('demo_activities.json', 'r'))
-	activities = all_activities[:95]
-	user = all_activities[95:]
+	user = [	
+				all_activities[9], 
+				all_activities[16], 
+				all_activities[21], 
+				all_activities[37]
+			]
+	activities = all_activities
 
-	#=====[ Step 3: get scores for activities	]=====
-	scored_activities = so.score_activities (user, activities)
 
 	#=====[ DISPLAY USER ]=====
-	print_header ("USER SUMMARY: EVENTS")
-	for a in user:
-		print "- ", a['_source']['name']
+	print_header ("USER REP:")
+	for activity in user:
+		print activity['_source']['name'], " | ", activity['_source']['description']
+		print '\n', '=' * 40, '\n'
+	print "\n\n\n"
 
-	#=====[ DISPLAY EVENTS	]=====
-	# print_header ("RECOMMENDATIONS")
-	# for a in activities 
+	#=====[ Step 3: get/display scores for activities	]=====
+	scored_activities = so.score_activities (user, activities)
+	sorted_activities = sorted(zip(activities, scored_activities), key=lambda x: x[1])
+	print_header ("ACTIVITY RECOMMENDATIONS: ")
+	for activity, score in sorted_activities:
+		print score, ": ", activity['_source']['name'], " | ", activity['_source']['description']
+		print '\n', '=' * 40, '\n'
+
 
 
 	
