@@ -73,7 +73,7 @@ class Inference(object):
 
 		# if seen was 0, then none of the words in activity_words has ever been seen, so we should return
 		# the very negative number
-		if seen == 0:
+		if seen < 15:
 			return self.very_negative_number
 		# 3: return the arithmetic average in log space (equivalent to the geometric average in probability space)
 		total = total/seen
@@ -201,7 +201,7 @@ class Inference(object):
 		weighted_scores = self.recommend (user_rep, recommend_activities)
 
 		# 3: TODO: how should we sort scores? currently returns the indices into "recommend_activites" df
-		return np.argsort(weighted_scores)[::-1]
+		return weighted_scores, recommend_activities
 
 
 	def recommend (self, user_rep, activities_df):
