@@ -30,6 +30,7 @@ class SpotOn:
 		self.semantic_analysis = SemanticAnalysis ()
 		self.user_analysis = UserAnalysis ()
 		self.inference = None
+		self.activities_corpus = None
 
 
 	def load (self):
@@ -206,6 +207,128 @@ class SpotOn:
 			prints out a representation of the lda topics found in self.semantic_analysis
 		"""
 		self.semantic_analysis.print_lda_topics ()
+
+
+	####################################################################################################
+	######################[ --- Exposed APIs --- ]######################################################
+	####################################################################################################
+
+
+	def load_activities_corpus(self, activities):
+		'''
+			function: load_activities_corpus
+			params: activities - list of activities to recommend
+
+			returns: none
+			notes: use this function to load a big activities corpus into the SpotOn object, and later when calling
+			recommend_for_user we will pull activities to recommend from this corpus.
+
+			Can be called multiple times to update to different activities
+		'''
+		# 1 : turn into a dataframe
+		activities_df = self.preprocess.preprocess_a(activities)
+		# 2 : set as self.activities_corpus
+		self.activities_corpus = activities_df
+		return
+
+	def calendar_activities_to_user_representation(self, calendar_activities):
+		'''
+			function: calendar_activities_to_user_representation
+			params: calendar_activities - list of json calendar activities from a user
+
+			returns: a user representation given by the calendar activities. This should be what inference takes
+		'''
+		# TODO - JAY
+		pass
+
+
+
+	def score_activity_for_user(self,user_representation,activity):
+		'''
+			function: score_activity_for_user
+
+			params: user_representation - rep of the user to score for
+					activity - json of the activity to score
+
+			notes: goes from the representation of the user that you use + one activity -> return a score for how much they'd like it (or a yes/no)
+			( this is #2 in Charles' email )
+		'''
+		# 1: preprocess the activity (user already preprocessed)
+		activity_row = self.preprocess.preprocess_a(activity)
+
+		# 2: find a score
+		score = self.inference.recommend(user_representation, activity_row)[0]
+
+		# 3: return
+		return score
+
+
+
+	def recommend_for_user(self, user_representation, activities=None, topn=5):
+		'''
+			function: recommend_for_user
+
+			params: user_representation - representation of the user to recommend for
+					activities - either a list of json activities, or None if .load_activities_corpus has been called
+					topn - number of recommendations to return
+
+
+			notes: goes from the representation of the user that you use -> return recommendations
+			( this is #3 in Charles' email )
+		'''
+
+		# 1: if they pass in a list of activities in json form, turn it into a df to recommend on
+		if activities is not None:
+			recommend_activities_df = self.preprocess.preprocess_a(activities)
+		else:
+			# otherwise, check to make sure that self.activities_corpus is not none
+			if self.activities_corpus == None:
+				print "Use .load_activities_corpus first!"
+				return None
+			else:
+				# use the loaded activities corpus
+				recommend_activities_df = self.activities_corpus
+
+		# 2: find scores
+		scores = self.inference.recommend(user_representation, recommend_activities_df)
+
+		# 3: argsort the scores
+		sorted_indices = np.argsort(scores)[::-1]
+
+		# 4: make a list of the topn activities
+		top_scores = []
+		for i in range(topn):
+			top_scores.append(recommend_activities_df[sorted_indices[i]])
+
+		# 5: return
+		return top_scores
+
+	def recommend_users_for_activities(self, activity, list_of_users, topn=5):
+		'''
+			function: recommend_users_for_activities
+
+			params: activity - activity to recommend users for
+					list_of_users - list of users to filter
+					topn - number of users to return
+
+			notes: goes from an activity and a list of users -> topn users for that activity
+			( this is #4 in Charles' email )
+		'''
+		# 1: find scores for each user
+		scores = []
+		for user in range(len(list_of_users)):
+			scores.append(self.score_activity_for_user(user, activity))
+
+		# 2: argsort the scores
+		sorted_indices = np.argsort(scores)[::-1]
+
+		# 3: make a list of the topn users
+		top_users = []
+		for i in range(topn):
+			top_users.append(list_of_users[sorted_indices[i]])
+
+		# 4: return
+		return top_users
 
 
 
