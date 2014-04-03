@@ -95,6 +95,8 @@ class Preprocess:
 			---------------------
 			given an object representing calendar events (either json or
 			pandas dataframe), this will return a correctly-formatted version
+			NOTE: after this call, it will be identical to the product of 
+			preprocess_a
 		"""
 		print_status ("preprocess_ce", "converting to dataframe representation")
 		df = self.get_dataframe_rep (ce)
@@ -113,6 +115,8 @@ class Preprocess:
 
 		print_status ("preprocess_ce", "reformatting description")
 		df = self.reformat_natural_language_column (df, 'description')
+		df['words'] = df['description']
+		df = df.drop ('description', axis=1)
 
 		return df
 
@@ -123,6 +127,8 @@ class Preprocess:
 			--------------------
 			given an object representing activities (either json or
 			pandas dataframe), this will return a correctly-formatted version
+			NOTE: after this call, it will be identical to the product of 
+			preprocess_ce
 		"""
 		print_status ("preprocess_a", "converting to dataframe representation")
 		df = self.get_dataframe_rep (a)
