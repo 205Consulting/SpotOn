@@ -8,6 +8,7 @@ import re
 import json
 import pickle
 import pandas as pd
+import string
 from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 from StorageDelegate import StorageDelegate
@@ -63,8 +64,9 @@ a_retain_cols = [
 					'response', 
 					'uid', 
 					'user',
-					'description'
-					#need something for date/time in here
+					'source',
+					'likedBy',
+					'langs',
 				]
 
 
@@ -94,10 +96,9 @@ class Preprocess:
 			given an object representing calendar events (either json or
 			pandas dataframe), this will return a correctly-formatted version
 		"""
-		#=====[ Step 1: ce -> dataframe representation	]=====
+		print_status ("preprocess_ce", "converting to dataframe representation")
 		df = self.get_dataframe_rep (ce)
 
-		#=====[ Step 2: apply formatting operations	]=====
 		print_status ("preprocess_ce", "dropping unnecessary columns")
 		df = self.retain_columns (df, ce_retain_cols)
 
@@ -107,14 +108,11 @@ class Preprocess:
 		print_status ("preprocess_ce", "filtering by location")
 		df = self.filter_location (df)
 
-		print_status ("preprocess_ce", "reformatting dates")
-		df = self.reformat_date (df)
-
 		print_status ("preprocess_ce", "reformatting name")
-		df = self.reformat_name (df)
+		df = self.reformat_natural_language_column (df, 'name')
 
 		print_status ("preprocess_ce", "reformatting description")
-		df = self.reformat_description (df)
+		df = self.reformat_natural_language_column (df, 'description')
 
 		return df
 
@@ -126,25 +124,20 @@ class Preprocess:
 			given an object representing activities (either json or
 			pandas dataframe), this will return a correctly-formatted version
 		"""
-		#=====[ Step 1: a -> dataframe representation	]=====
-		# print_status ("preprocess_a", "converting to dataframe representation")
+		print_status ("preprocess_a", "converting to dataframe representation")
 		df = self.get_dataframe_rep (a)
 
-		#=====[ Step 2: apply formatting operations	]=====
-		# print_status ("preprocess_a", "dropping unnecessary columns")
+		print_status ("preprocess_a", "dropping unnecessary columns")
 		df = self.retain_columns (df, a_retain_cols)
 
-		# print_status ("preprocess_a", "reformatting location")
+		print_status ("preprocess_a", "reformatting location")
 		df = self.reformat_location (df)
 
-		# print_status ("preprocess_a", "filtering by location")
+		print_status ("preprocess_a", "filtering by location")
 		df = self.filter_location (df)
 
-		# print_status ("preprocess_a", "reformatting name")
-		df = self.reformat_name (df)
-
-		# print_status ("preprocess_a", "reformatting words")
-		df = self.reformat_words(df)
+		print_status ("preprocess_a", "reformatting name")
+		df = self.reformat_natural_language_column (df, 'name')
 
 		return df
 
@@ -210,34 +203,32 @@ class Preprocess:
 		return df.drop (drop_cols, 1)
 
 
-	def reformat_location(self, df):
+	def reformat_location (self, df):
 		"""
 			PRIVATE: reformat_location
 			--------------------------
-			converts 'location' column to storing just the timezone 
+			takes the 'location' field and expands it
 		"""
-		def extract_timezone (location):
-			if type(location) == type({}):
-				if 'tz' in location:
-					return location['tz']
-			return None
+		#=====[ Step 1: get location dataframe	]=====
+		location_df = pd.DataFrame(list(df['location']))
+		location_df['location_name'] = location_df['name']
+		location_df = location_df.drop (['name', 'offset'], axis=1)
+		df = df.drop ('location', axis=1)
 
-		if 'location' in df:
-			df['location'] = df['location'].apply(extract_timezone)
-		return df
+		#=====[ Step 2: merge the two	]=====
+		return pd.concat ([df, location_df], axis=1)
 
 
 	def filter_location (self, df):
 		"""
-			PRIVATE: filter_timezone 
+			PRIVATE: filter_location
 			------------------------
 			returns a version of the dataframe with only those entries with 
 			timezones falling in 'us_timezones'
 		"""
-		if 'location' in df:
-			valid_timezones_boolvec = df['location'].apply (lambda x: x in us_timezones)
-			return df[valid_timezones_boolvec]
-		return df
+		pattern = r'(America|US|UTC)'
+		america_ix = df['tz'].str.contains (pattern, na=False)
+		return df.ix[america_ix]
 
 
 	def reformat_date (self, df):
@@ -251,68 +242,40 @@ class Preprocess:
 		return df.drop ('dates', 1)
 
 
-	def tokenize_remove_stopwords (self, text):
+	def reformat_natural_language_column (self, df, colname):
 		"""
-			PRIVATE: tokenize_remove_stopwords
-			----------------------------------
-			given a string s:
-			- tokenizes 
-			- converts to lower case
-			- removes stopwords
-			- removes words with digits, 
+			PRIVATE: reformat_natural_language_column
+			-----------------------------------------
+			given a column that contains natural language,
+			this will reformat it to be a tokenized list 
+			of lowercase words, exluding punctation, stopwords
+			and those with numbers
 		"""
-		#=====[ Function: indicator for containing digits	]=====
+		#=====[ Step 1: convert to lowercase	]=====
+		df[colname] = df[colname].str.lower ()
+
+		#=====[ Step 2: remove punctuation (TODO: remove words with numbers too)	]=====
+		punctuation = '[^\w\s]'
+		df[colname] = df[colname].str.replace(punctuation, '')
+
+		#=====[ Step 3: split on spaces	]=====
+		df[colname] = df[colname].str.split ()
+
+		#=====[ Step 4: remove stopwords/words with digits	]=====
+		sw = set(stopwords.words('english'))
 		_digits = re.compile('\d')
 		def contains_digits(word):
 			return bool(_digits.search(word))
-		
-		#=====[ Function: indicator for valid words to include	]=====
 		def is_valid (word):
-			if len(word) > 1:
-				if not word in stopwords.words ('english'):
-					if not contains_digits(word):
-						return True
+			if word in sw:
+				return False
+			if not contains_digits(word):
+				return True
 			return False
-
-		if type(text) == type('') or type(text) == type(u''):
-			return [w.lower() for w in self.tokenizer.tokenize(text) if is_valid(w.lower())]
-		if type(text) == list:
-			return [w for w in text if is_valid(w)]
-
-
-	def reformat_name (self, df):
-		"""
-			PRIVATE: reformat_name 
-			----------------------
-			converts the given dataframe's 'name' column so that it is tokenized, 
-			lowercase, no stopwords 
-		"""
-		if 'name' in df:
-			df['name'] = df['name'].apply (self.tokenize_remove_stopwords)
-		return df
-
-
-	def reformat_description (self, df):
-		"""
-			PRIVATE: reformat_description
-			-----------------------------
-			converts the given dataframe's 'description' column so that it is tokenized, 
-			lowercase, no stopwords 
-		"""
-		if 'description' in df:
-			df['description'] = df['description'].apply(self.tokenize_remove_stopwords)
-		return df
-
-
-	def reformat_words (self, df):
-		"""
-			PRIVATE: reformat_words 
-			-----------------------
-			converts the given dataframe's 'words' column so that it is tokenized,
-			lowercase, not stopwords 
-		"""
-		if 'description' in df:
-			df['words'] = df['description'].apply (self.tokenize_remove_stopwords)
-		else:
-			df['words'] = df['words'].apply (self.tokenize_remove_stopwords)
+		def reformat_words (words):
+			if type(words) == list:
+				return [w for w in words if is_valid(w)]
+			else:
+				return []
+		df[colname] = df[colname].apply (reformat_words)
 		return df

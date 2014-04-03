@@ -231,19 +231,20 @@ class SpotOn:
 		self.activities_corpus = activities_df
 		return
 
-	def calendar_activities_to_user_representation(self, calendar_activities):
+
+	def activities_to_user_representation(self, activities_json):
 		'''
-			function: calendar_activities_to_user_representation
-			params: calendar_activities - list of json calendar activities from a user
+			function: activities_to_user_representation
+			params: activities_json - list of json calendar activities from a user
 
-			returns: a user representation given by the calendar activities. This should be what inference takes
+			returns: a user representation given by the activities. This should be what inference takes
 		'''
-		# TODO - JAY
-		pass
+		return self.preprocess.preprocess_a(activities_json)
 
 
 
-	def score_activity_for_user(self,user_representation,activity):
+
+	def score_activity_for_user(self, user_representation, activity):
 		'''
 			function: score_activity_for_user
 
@@ -261,7 +262,6 @@ class SpotOn:
 
 		# 3: return
 		return score
-
 
 
 	def recommend_for_user(self, user_representation, activities=None, topn=5):
@@ -303,6 +303,7 @@ class SpotOn:
 		# 5: return
 		return top_scores
 
+
 	def recommend_users_for_activities(self, activity, list_of_users, topn=5):
 		'''
 			function: recommend_users_for_activities
@@ -315,17 +316,13 @@ class SpotOn:
 			( this is #4 in Charles' email )
 		'''
 		# 1: find scores for each user
-		scores = []
-		for user in range(len(list_of_users)):
-			scores.append(self.score_activity_for_user(user, activity))
+		scores = [self.score_activity_for_user(user, activity) for user in range(len(list_of_users))
 
 		# 2: argsort the scores
 		sorted_indices = np.argsort(scores)[::-1]
 
 		# 3: make a list of the topn users
-		top_users = []
-		for i in range(topn):
-			top_users.append(list_of_users[sorted_indices[i]])
+		top_users = [list_of_users[sorted_indices[i]] for i in range(topn)]
 
 		# 4: return
 		return top_users
