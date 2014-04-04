@@ -38,7 +38,7 @@ if __name__ == "__main__":
 	print_header("Test three: pass the representation of the user that you use -> return recommendations")
 	# load activities to recommend
 	so.load_activities_corpus(activities_json)
-	top_scores = so.recommend_for_user(user_reps[0])
+	top_scores = so.recommend_for_user(user_reps[1])
 	print "Top scores: "
 	for score in top_scores:
 		print score
@@ -47,7 +47,13 @@ if __name__ == "__main__":
 	# Test 4: recommend_users_for_activity
 	print_header("Test four: pass one activity and a list of users (represented your way) -> filter the list of users to get the ones who would like that activity")
 	top_users = so.recommend_users_for_activity(activities_json[2], user_reps, topn=3)
-	print "Top users: "
+	print "Top users (shopping): "
+	for user in top_users:
+		print user['events_df']['words']
+		print "\n"
+
+	top_users = so.recommend_users_for_activity(activities_json[21], user_reps, topn=3)
+	print "Top users (music): "
 	for user in top_users:
 		print user['events_df']['words']
 		print "\n"
