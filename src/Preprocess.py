@@ -98,22 +98,22 @@ class Preprocess:
 			NOTE: after this call, it will be identical to the product of 
 			preprocess_a
 		"""
-		print_status ("preprocess_ce", "converting to dataframe representation")
+		# print_status ("preprocess_ce", "converting to dataframe representation")
 		df = self.get_dataframe_rep (ce)
 
-		print_status ("preprocess_ce", "dropping unnecessary columns")
+		# print_status ("preprocess_ce", "dropping unnecessary columns")
 		df = self.retain_columns (df, ce_retain_cols)
 
-		print_status ("preprocess_ce", "reformatting location")
+		# print_status ("preprocess_ce", "reformatting location")
 		df = self.reformat_location (df)
 
-		print_status ("preprocess_ce", "filtering by location")
+		# print_status ("preprocess_ce", "filtering by location")
 		df = self.filter_location (df)
 
-		print_status ("preprocess_ce", "reformatting name")
+		# print_status ("preprocess_ce", "reformatting name")
 		df = self.reformat_natural_language_column (df, 'name')
 
-		print_status ("preprocess_ce", "reformatting description")
+		# print_status ("preprocess_ce", "reformatting description")
 		df = self.reformat_natural_language_column (df, 'description')
 		df['words'] = df['description']
 		df = df.drop ('description', axis=1)
@@ -130,19 +130,19 @@ class Preprocess:
 			NOTE: after this call, it will be identical to the product of 
 			preprocess_ce
 		"""
-		print_status ("preprocess_a", "converting to dataframe representation")
+		# print_status ("preprocess_a", "converting to dataframe representation")
 		df = self.get_dataframe_rep (a)
 
-		print_status ("preprocess_a", "dropping unnecessary columns")
+		# print_status ("preprocess_a", "dropping unnecessary columns")
 		df = self.retain_columns (df, a_retain_cols)
 
-		print_status ("preprocess_a", "reformatting location")
+		# print_status ("preprocess_a", "reformatting location")
 		df = self.reformat_location (df)
 
-		print_status ("preprocess_a", "filtering by location")
+		# print_status ("preprocess_a", "filtering by location")
 		df = self.filter_location (df)
 
-		print_status ("preprocess_a", "reformatting name")
+		# print_status ("preprocess_a", "reformatting name")
 		df = self.reformat_natural_language_column (df, 'name')
 
 		return df
@@ -167,6 +167,10 @@ class Preprocess:
 			given an object, returns pandas dataframe version of it.
 			(raises TypeError if it is neither pandas dataframe nor json)
 		"""
+		#=====[ Case: single json dict	]=====
+		if type(obj) == dict:
+			obj = [obj]
+
 		#=====[ Case: list of json dicts	]=====
 		if type(obj) == list and '_source' in obj[0].keys ():
 			return pd.DataFrame([x['_source'] for x in obj])
@@ -217,8 +221,9 @@ class Preprocess:
 		"""
 		#=====[ Step 1: get location dataframe	]=====
 		location_df = pd.DataFrame(list(df['location']))
-		location_df['location_name'] = location_df['name']
-		location_df = location_df.drop (['name', 'offset'], axis=1)
+		if 'name' in location_df:
+			location_df['location_name'] = location_df['name']
+			location_df = location_df.drop ('name', axis=1)
 		df = df.drop ('location', axis=1)
 
 		#=====[ Step 2: merge the two	]=====

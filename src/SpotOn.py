@@ -232,14 +232,18 @@ class SpotOn:
 		return
 
 
-	def activities_to_user_representation(self, activities_json):
+	def calendar_events_to_user_representation(self, ce_json):
 		'''
-			function: activities_to_user_representation
-			params: activities_json - list of json calendar activities from a user
+			function: calendar_events_to_user_representation
+			params: ce_json - list of json calendar activities from a user
 
-			returns: a user representation given by the activities. This should be what inference takes
+			returns: a user representation given by the calendar events json. This should be what inference takes
 		'''
-		return self.preprocess.preprocess_a(activities_json)
+		user_df 	= self.preprocess.preprocess_ce(ce_json)
+		user_doc 	= sum(list(user_df['name']), []) + sum(list(user_df['words']), [])
+		lda_vec 	= self.semantic_analysis.get_lda_vec (user_doc)
+		return {'events_df':user_df, 'lda_vec':lda_vec}
+
 
 
 
@@ -254,11 +258,14 @@ class SpotOn:
 			notes: goes from the representation of the user that you use + one activity -> return a score for how much they'd like it (or a yes/no)
 			( this is #2 in Charles' email )
 		'''
-		# 1: preprocess the activity (user already preprocessed)
-		activity_row = self.preprocess.preprocess_a(activity)
+		# 1: preprocess the activity, add lda (user already preprocessed)
+		activity_df = self.preprocess.preprocess_a(activity)
+		if len(activity_df) == 0:
+			return -100
+		activity_df = self.semantic_analysis.apply_lda (activity_df)
 
 		# 2: find a score
-		score = self.inference.recommend(user_representation, activity_row)[0]
+		score = self.inference.recommend(user_representation, activity_df)[0]
 
 		# 3: return
 		return score
@@ -316,7 +323,7 @@ class SpotOn:
 			( this is #4 in Charles' email )
 		'''
 		# 1: find scores for each user
-		scores = [self.score_activity_for_user(user, activity) for user in range(len(list_of_users))
+		scores = [self.score_activity_for_user(user, activity) for user in range(len(list_of_users))]
 
 		# 2: argsort the scores
 		sorted_indices = np.argsort(scores)[::-1]

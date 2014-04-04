@@ -3,9 +3,10 @@
 # class responsible for providing all functionality that 
 # involved in discerning semantic content from natural 
 # language
-import numpy as np
 import pickle
 from operator import itemgetter
+import numpy as np
+import pandas as pd
 from gensim.models.ldamodel import LdaModel
 from gensim.models.tfidfmodel import TfidfModel
 from gensim.models.word2vec import Word2Vec
@@ -90,14 +91,14 @@ class SemanticAnalysis:
 		print_inner_status ("SA load", "loading dictionary")
 		self.load_dictionary ()
 
-		print_inner_status ("SA load", "loading TF.IDF model")
-		self.load_tfidf_model ()
+		# print_inner_status ("SA load", "loading TF.IDF model")
+		# self.load_tfidf_model ()
 
 		print_inner_status ("SA load", "loading LDA model ")
 		self.load_lda_model ()
 
-		print_inner_status ("SA load", "loading Word2Vec model")
-		self.load_word2vec_model ()
+		# print_inner_status ("SA load", "loading Word2Vec model")
+		# self.load_word2vec_model ()
 
 
 	def load_dictionary (self, filename='../data/models/gensim_dictionary'):
@@ -169,24 +170,24 @@ class SemanticAnalysis:
 		assert (target_col in df)
 
 		#=====[ Step 1: apply tf.idf	]=====
-		print_inner_status ("SA analyze", "applying TF.IDF")
-		df = self.apply_tfidf (df, target_col)
+		# print_inner_status ("SA analyze", "applying TF.IDF")
+		# df = self.apply_tfidf (df, target_col)
 
 		#=====[ Step 2: apply lda	]=====
 		print_inner_status ("SA analyze", "applying LDA")
 		df = self.apply_lda (df, target_col)		
 
 		#=====[ Step 3: apply word2vec	]=====
-		print_inner_status ("SA analyze", "applying Word2Vec")
-		df = self.apply_w2v (df, target_col)	
+		# print_inner_status ("SA analyze", "applying Word2Vec")
+		# df = self.apply_w2v (df, target_col)	
 
 		#=====[ Step 4: apply w2v weighted sum	]=====
-		print_inner_status ("SA analyze", "applying Word2Vec weighted sum")
-		df = self.apply_w2v_w_sum (df, target_col)
+		# print_inner_status ("SA analyze", "applying Word2Vec weighted sum")
+		# df = self.apply_w2v_w_sum (df, target_col)
 
 		#=====[ Step 5: apply w2v weighted average	]=====
-		print_inner_status ("SA analyze", "applying Word2Vec weighted average")
-		df = self.apply_w2v_w_avg (df, target_col)
+		# print_inner_status ("SA analyze", "applying Word2Vec weighted average")
+		# df = self.apply_w2v_w_avg (df, target_col)
 
 		return df
 
@@ -261,15 +262,22 @@ class SemanticAnalysis:
 		return normalized_gamma
 
 
-	def apply_lda (self, df, target_col):
+	def apply_lda (self, df):
 		"""
 			PUBLIC: apply_lda
 			-----------------
 			given a dataframe and a target column, this will run LDA 
 			on it, add a column to df, and return it.
 		"""
-		colname_lda = self.get_colname_lda (target_col)
-		df[colname_lda] = df[target_col].apply (self.get_lda_vec)
+		lda_docs = []
+		def get_lda_doc (row):
+			nr = row['name']
+			nw = row['words']
+			lda_docs.append(sum([nr, nw], []))
+
+
+		df.apply (get_lda_doc, axis=1)
+		df['lda_vec'] = pd.Series([self.get_lda_vec(x) for x in lda_docs])
 		return df
 
 
