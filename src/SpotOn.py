@@ -289,10 +289,12 @@ class SpotOn:
 			recommend_activities_df = self.preprocess.preprocess_a(activities)
 		else:
 			# otherwise, check to make sure that self.activities_corpus is not none
-			if self.activities_corpus == None:
+			if self.activities_corpus is not None:
+				# use the loaded activities corpus
+				recommend_activities_df = self.activities_corpus
+			else:
 				print "Use .load_activities_corpus first!"
 				return None
-			else:
 				# use the loaded activities corpus
 				recommend_activities_df = self.activities_corpus
 
@@ -305,13 +307,13 @@ class SpotOn:
 		# 4: make a list of the topn activities
 		top_scores = []
 		for i in range(topn):
-			top_scores.append(recommend_activities_df[sorted_indices[i]])
+			top_scores.append(recommend_activities_df.iloc[sorted_indices[i]])
 
 		# 5: return
 		return top_scores
 
 
-	def recommend_users_for_activities(self, activity, list_of_users, topn=5):
+	def recommend_users_for_activity(self, activity, list_of_users, topn=5):
 		'''
 			function: recommend_users_for_activities
 
@@ -323,7 +325,7 @@ class SpotOn:
 			( this is #4 in Charles' email )
 		'''
 		# 1: find scores for each user
-		scores = [self.score_activity_for_user(user, activity) for user in range(len(list_of_users))]
+		scores = [self.score_activity_for_user(user, activity) for user in list_of_users]
 
 		# 2: argsort the scores
 		sorted_indices = np.argsort(scores)[::-1]

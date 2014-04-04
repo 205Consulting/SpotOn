@@ -142,9 +142,9 @@ class Inference(object):
 			a list of words representing it. 
 		"""
 		doc = []
-		if activity_row['name']:
+		if type(activity_row['name']) == list:
 			doc += activity_row['name']
-		if activity_row['words']:
+		if type(activity_row['words']) == list:
 			doc += activity_row['words']
 		return doc
 
