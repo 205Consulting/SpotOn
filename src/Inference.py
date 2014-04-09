@@ -208,13 +208,11 @@ class Inference(object):
 		#=====[ Step 1: ensure a_df is featurized	]=====
 		assert self.is_featurized (a_df)
 
-		weights = np.array([1, 1, 0])
-
-
 		#=====[ Step 2: combine scores	]=====
-		# scores = a_df['[FEATURE: lda_gen_prob] norm'] * a_df['[FEATURE: w2v_sim] norm'] #* a_df['[FEATURE: lda_sim] norm']
 		# scores = a_df['[FEATURE: w2v_sim] norm']
+		# scores = a_df['[FEATURE: lda_gen_prob] norm']
 		scores = a_df['[FEATURE: lda_sim]'] * a_df['[FEATURE: w2v_sim]']
+		# scores = a_df['[FEATURE: lda_gen_prob] norm'] * a_df['[FEATURE: w2v_sim] norm'] * a_df['[FEATURE: lda_sim] norm']		
 		scores = scores.fillna(-100000)
 		return scores
 

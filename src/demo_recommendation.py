@@ -30,7 +30,7 @@ if __name__ == "__main__":
 					]
 	user_graduate = so.calendar_events_to_user_representation (user_graduate)
 
-	user_rep = user_graduate
+	user_rep = user_mother
 	#####[ DISPLAY USER ]#####
 	print_header ("USER REP:")
 	for i in range(len(user_rep['events_df'])):
