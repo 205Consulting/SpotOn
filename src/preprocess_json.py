@@ -25,7 +25,7 @@ if __name__ == "__main__":
 	#=====[ Step 3: apply Preprocess to it	]=====
 	print_header ('PREPROCESSING JSON')
 	a_df = pre.preprocess_a (a_json)
-	end_time = time.time ()
 
-	#=====[ Step 4: print out elapsed time	]=====
+	######[ PRINT ELAPSED TIME	]#####
+	end_time = time.time ()
 	print_notification ('Elapsed time: ' + str(end_time - start_time))

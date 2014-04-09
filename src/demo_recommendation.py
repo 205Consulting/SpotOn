@@ -14,91 +14,66 @@ if __name__ == "__main__":
 	so = SpotOn ()
 	so.load ()
 
-	# Ankit's Step 2: Get users
-	print_header("Test one: pass a list of calendar events for one user -> create a representation of the user that you use")
-	activities_json = json.load(open('activities_new.json'))
-	user_names = ['shopping', 'music', 'community']
-	user_events = [[activities_json[2], activities_json[4], activities_json[7], activities_json[14]], [activities_json[21], activities_json[51], activities_json[57], activities_json[220]], [activities_json[94], activities_json[196], activities_json[101], activities_json[365]]]
-	user_reps = [so.calendar_events_to_user_representation(user) for user in user_events]
+	#=====[ Step 2: get user representation(s) ]=====
+	ce_json = json.load (open('demo_calendar_events.json', 'r'))
+	user_mother = [		
+						ce_json[1], 	# zumba class
+						ce_json[28],	# yoga class
+						ce_json[9], 	# family shenanigans
+						ce_json[8] 		# women in business
+					]
+	user_mother = so.calendar_events_to_user_representation (user_mother)
 
-	# display users:
-	print_header("USER REPS:")
-	for user in user_reps:
-		print user['events_df']['words']
-		print "\n\n"
+	user_graduate = [	
+						ce_json[36],	# wine/drink night
+						ce_json[55], 	# running and walking in austin
+					]
+	user_graduate = so.calendar_events_to_user_representation (user_graduate)
 
-	# TESTS --------------
-
-	# Test 2: score_activity_for_user
-	print_header("Test two: pass the representation of the user that you use + one activity -> return a score for how much they'd like it (or a yes/no)")
-	score = so.score_activity_for_user(user_reps[0], activities_json[2])
-	print score
-
-	# Test 3: load_activities_corpus and recommend_for_user
-	print_header("Test three: pass the representation of the user that you use -> return recommendations")
-	# load activities to recommend
-	so.load_activities_corpus(activities_json)
-	top_scores = so.recommend_for_user(user_reps[1])
-	print "Top scores: "
-	for score in top_scores:
-		print score
-		print "\n"
-
-	# Test 4: recommend_users_for_activity
-	print_header("Test four: pass one activity and a list of users (represented your way) -> filter the list of users to get the ones who would like that activity")
-	top_users = so.recommend_users_for_activity(activities_json[2], user_reps, topn=3)
-	print "Top users (shopping): "
-	for user in top_users:
-		print user['events_df']['words']
-		print "\n"
-
-	top_users = so.recommend_users_for_activity(activities_json[21], user_reps, topn=3)
-	print "Top users (music): "
-	for user in top_users:
-		print user['events_df']['words']
-		print "\n"
-
-
-
-
-
-	# #=====[ Step 2: get user representation ]=====
-	# ce_json = json.load (open('demo_calendar_events.json', 'r'))
-	# user_events = [ce_json[1], ce_json[9], ce_json[8], ce_json[28]]
-	# user_rep = so.calendar_events_to_user_representation (user_events)
-	# ######[ DISPLAY USER ]#####
-	# print_header ("USER REP:")
-	# for event in user_events:
-	# 	print event['_source']['name'], " | ", event['_source']['description']
-	# 	print '\n', '=' * 40, '\n'
-	# print "\n\n\n"
-	# #=====[ Step 3: get activities to recommend	]=====
-	# a_json = json.load (open('demo_activities.json', 'r'))
-
-
-	# #==========[ TESTS	]==========
-
-	# #=====[ TEST 1: score activity	]=====
-	# print_header ("SCORE ACTIVITIES:")
-	# for activity in a_json[-100:]:
-	# 	score = so.score_activity_for_user (user_rep, activity)
-	# 	print score, ': ', activity['_source']['name']
-
-	# #=====[ TEST 2: score activities	]=====
-	# print_header ("USER RECOMMENDATIONS")
-	# top_scores = so.recommend_for_user (user_rep, a_json)
-	# print top_scores
-
-
-	# # #=====[ Step 3: get/display scores for activities	]=====
-	# # scored_activities, returned_activities = so.score_activities (user, activities)
-	# # sorted_activities = np.argsort(scored_activities)[::-1]
-	# print_header ("ACTIVITY RECOMMENDATIONS: ")
-	# for i in range(5): #change 5 to see more results
-	# 	activity_index = sorted_activities[i]
-	# 	print i, ": ", returned_activities.iloc[activity_index]
-	# 	print '\n', '='*40, '\n'
-
-
-
+	user_rep = user_graduate
+	#####[ DISPLAY USER ]#####
+	print_header ("USER REP:")
+	for i in range(len(user_rep['events_df'])):
+		print 'Event: ', ' '.join(user_rep['events_df'].iloc[i]['name'])
+	print '\n\n'
+	#####[ END DISPLAY USER	]#####
 	
+
+	#=====[ Step 3: get activities to recommend	]=====
+	activities_json = json.load (open('demo_activities.json', 'r'))
+
+
+
+
+
+
+	####################################################################################################
+	######################[ --- Exposed API TEST --- ]##################################################
+	####################################################################################################
+
+	#####[ TEST: score activity for user	]#####
+	print_header("Test 1: score_activity_for_user")
+	score = so.score_activity_for_user(user_rep, activities_json[6])
+	print activities_json[6]['_source']['name'], ': ', score
+	print '\n\n'
+
+	#####[ TEST: load_activities_corpus and recommend_for_user	]#####
+	print_header("Test 2: recommend_for_user")
+	so.load_activities_corpus(activities_json)
+	activity_ranks = so.recommend_for_user(user_rep)
+	for rank, index in enumerate(activity_ranks[:50]):
+		print rank, ': ', activities_json[index]['_source']['name']
+	print '\n\n'
+
+	#####[ TEST: recommend_users_for_activity	]#####
+	print_header("Test 3: recommend_users_for_activity")
+	top_users = so.recommend_users_for_activity(activities_json[6], [user_mother, user_graduate], topn=2)
+	print '#####[ Activity: ]#####'
+	print activities_json[6]['_source']['name']
+	print '\n'
+	print '#####[ Top Users ]#####'
+	for user in top_users:
+		print '===[ User: ]==='
+		print user['events_df']['name']
+		print "\n"
+

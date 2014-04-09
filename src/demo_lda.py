@@ -18,4 +18,4 @@ if __name__ == "__main__":
 	so.print_lda_topics ()
 
 	#=====[ Step 4: save the model	]=====
-	so.semantic_analysis.save ()
+	# so.semantic_analysis.save ()

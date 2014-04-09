@@ -14,7 +14,7 @@ from Preprocess import Preprocess
 from SemanticAnalysis import SemanticAnalysis
 from UserAnalysis import UserAnalysis
 from Inference import Inference
-from util import print_status, print_inner_status, print_header
+from util import *
 
 class SpotOn:
 
@@ -78,7 +78,7 @@ class SpotOn:
 		"""
 		self.u_df = pd.read_pickle(filepath)
 
-	
+
 
 
 
@@ -106,6 +106,7 @@ class SpotOn:
 			text += activity_row['words']
 		return text
 
+
 	def get_corpus_dictionary (self):
 		"""
 			PRIVATE: get_corpus_dictionary
@@ -115,21 +116,30 @@ class SpotOn:
 		"""
 		#=====[ Step 1: iterate through all activity dataframes	]=====
 		print_status ("get_corpus", "assembling texts")
-		texts = []
+		documents = []
 		for df in self.storage_delegate.iter_activity_dfs ():
-			print_inner_status ("assembling texts", "next df")
-			texts += list(df.apply(self.extract_text, axis=1))
+			df['lda_doc'] = df['name'] + df['words']
+			documents += list(df['lda_doc'])
 
-		#=====[ Step 3: get dictionary	]=====
+		#=====[ Step 2: get dictionary	]=====
 		print_status ("get_corpus", "assembling dictionary")
-		dictionary = gensim.corpora.Dictionary(texts)
+		dictionary = gensim.corpora.Dictionary(documents)
 
-		#=====[ Step 4: get corpus	]=====
+		#=====[ Step 3: get corpus	]=====
 		print_status ("get_corpus", "assembling corpus")		
-		corpus = [dictionary.doc2bow (text) for text in texts]
+		corpus = [dictionary.doc2bow (d) for d in documents]
 
 		return corpus, dictionary
 
+
+	def print_lda_topics (self):
+		"""
+			PUBLIC: print_lda_topics
+			------------------------
+			prints out a representation of the lda topics found in self.semantic_analysis
+		"""
+		print_header ("LDA TOPICS: ")
+		self.semantic_analysis.print_lda_topics ()
 
 
 	def train_semantic_analysis (self):
@@ -146,72 +156,53 @@ class SpotOn:
 		print_status ("train_semantic_analysis", "training semantic analysis")
 		self.semantic_analysis.train (corpus, dictionary)
 
-
+		#####[ DEBUG: print out lda topics	]#####
+		self.print_lda_topics ()
 
 
 
 
 	####################################################################################################
-	######################[ --- Inference --- ]#########################################################
+	######################[ --- Processing --- ]########################################################
 	####################################################################################################
 
-	def score_activities_old (self, user_activities, recommend_activities):
+	def activities_json_to_df (self, a_json):
 		"""
-			PUBLIC: score_activities
-			------------------------
-			Given a user and a list of activities, both represented as json, this will return 
-			(activities, scores) in a sorted list
+			PRIVATE: activities_json_to_df
+			------------------------------
+			given: list of json dicts representing activities 
+			returns: dataframe with preprocessing, semantic analysis
 		"""
-		#=====[ Step 1: preprocess json inputs	]=====
-		user_events_df = self.preprocess.preprocess_a (user_activities)
-		activities_df = self.preprocess.preprocess_a (recommend_activities)
-
-		#=====[ Step 2: construct a user from user_events_df	]=====
-		def f():
-			yield user_events_df
-		users = self.user_analysis.extract_users (f)
-		assert len(users) == 1
-		user = users.iloc[0]
-
-		#=====[ Step 3: get scores for each one	]=====
-		scores = [inference.score_match (user, activities_df.iloc[i]) for i in range(len(activities_df))]
-
-		#=====[ Step 4: return sorted list of activity, score	]=====
-		return sorted(zip(activities_json, scores), key=lambda x: x[1], reverse=True)
+		a_df = self.preprocess.preprocess_a (a_json)
+		a_df = self.semantic_analysis.add_lda_vec_column (a_df)
+		a_df = self.semantic_analysis.add_w2v_sum_column (a_df)
+		return a_df
 
 
-	def score_activities (self, user_activities, recommend_activities):
+	def calendar_events_json_to_df (self, ce_json):
 		"""
-			PUBLIC: score_activities
-			------------------------
-			Given a user and a list of activities, both represented as json, this will return 
-			(activities, scores) in a sorted list
+			PRIVATE: calendar_events_json_to_df
+			------------------------------
+			given: list of json dicts representing calendar events 
+			returns: dataframe with preprocessing, semantic analysis
 		"""
-		#=====[ Step 1: preprocess user_activities and recommend_activities	]=====
-		user_activities = self.preprocess.preprocess_a (user_activities)
-		recommend_activities = self.preprocess.preprocess_a (recommend_activities)
-
-		#=====[ Step 2: get scores for each one	]=====
-		scores = self.inference.score_activities (user_activities, recommend_activities)
-		return scores
+		ce_df = self.preprocess.preprocess_ce (ce_json)
+		ce_df = self.semantic_analysis.add_lda_vec_column (ce_df)
+		ce_df = self.semantic_analysis.add_w2v_sum_column (ce_df)
+		return ce_df
 
 
-	####################################################################################################
-	######################[ --- Interface --- ]#########################################################
-	####################################################################################################
-
-	def print_lda_topics (self):
+	def calendar_events_to_user_representation(self, ce_json):
 		"""
-			PUBLIC: print_lda_topics
-			------------------------
-			prints out a representation of the lda topics found in self.semantic_analysis
+			PUBLIC: calendar_events_to_user_representation
+			----------------------------------------------
+			given a list containing json dicts representing calendar events belonging
+			to a single user, this will return a representation that can be passed to 
+			score_activity_for_user and recommend_for_user
 		"""
-		self.semantic_analysis.print_lda_topics ()
-
-
-	####################################################################################################
-	######################[ --- Exposed APIs --- ]######################################################
-	####################################################################################################
+		user_df 	= self.calendar_events_json_to_df (ce_json)
+		lda_vec 	= self.semantic_analysis.get_user_lda_vec (user_df)
+		return {'events_df':user_df, 'lda_vec':lda_vec}
 
 
 	def load_activities_corpus(self, activities):
@@ -225,159 +216,79 @@ class SpotOn:
 
 			Can be called multiple times to update to different activities
 		'''
-		# 1 : turn into a dataframe
-		activities_df = self.preprocess.preprocess_a(activities)
-		# 2 : set as self.activities_corpus
-		self.activities_corpus = activities_df
-		return
-
-
-	def calendar_events_to_user_representation(self, ce_json):
-		'''
-			function: calendar_events_to_user_representation
-			params: ce_json - list of json calendar activities from a user
-
-			returns: a user representation given by the calendar events json. This should be what inference takes
-		'''
-		user_df 	= self.preprocess.preprocess_ce(ce_json)
-		user_doc 	= sum(list(user_df['name']), []) + sum(list(user_df['words']), [])
-		lda_vec 	= self.semantic_analysis.get_lda_vec (user_doc)
-		return {'events_df':user_df, 'lda_vec':lda_vec}
+		self.activities_corpus = self.activities_json_to_df (activities)
 
 
 
 
+
+
+
+
+
+
+
+
+	####################################################################################################
+	######################[ --- Recommending --- ]######################################################
+	####################################################################################################
 
 	def score_activity_for_user(self, user_representation, activity):
-		'''
-			function: score_activity_for_user
-
-			params: user_representation - rep of the user to score for
+		"""
+			PUBLIC: score_activity_for_user
+			-------------------------------
+			params: user_representation - representation of the user to score for
+								(created by calendar_events_to_user_representation)
 					activity - json of the activity to score
 
-			notes: goes from the representation of the user that you use + one activity -> return a score for how much they'd like it (or a yes/no)
-			( this is #2 in Charles' email )
-		'''
-		# 1: preprocess the activity, add lda (user already preprocessed)
-		activity_df = self.preprocess.preprocess_a(activity)
-		if len(activity_df) == 0:
-			return -100
-		activity_df = self.semantic_analysis.apply_lda (activity_df)
+			notes: goes from the representation of the user that you use + one activity 
+					-> return a score for how much they'd like it
+		"""
+		#=====[ Step 1: get activity dataframe 	]=====
+		activity_df = self.activities_json_to_df ([activity])
 
-		# 2: find a score
-		score = self.inference.recommend(user_representation, activity_df)[0]
+		#=====[ Step 2: get scored dataframe	]=====
+		activity_df = self.inference.infer_scores (user_representation, activity_df)
 
-		# 3: return
-		return score
+		#=====[ Step 3: extract and return score	]=====
+		return activity_df.iloc[0]['score']
 
 
-	def recommend_for_user(self, user_representation, activities=None, topn=5):
-		'''
-			function: recommend_for_user
-
+	def recommend_for_user(self, user_representation, activities=None, topn=10):
+		"""
+			PUBLIC: recommend_for_user
+			--------------------------
 			params: user_representation - representation of the user to recommend for
-					activities - either a list of json activities, or None if .load_activities_corpus has been called
+					activities - either a list of json activities, or None if 
+									.load_activities_corpus has been called
 					topn - number of recommendations to return
-
-
-			notes: goes from the representation of the user that you use -> return recommendations
-			( this is #3 in Charles' email )
-		'''
-
-		# 1: if they pass in a list of activities in json form, turn it into a df to recommend on
+		"""
+		#=====[ Step 1: get a_df, df of activities to recommend	]=====
 		if activities is not None:
-			recommend_activities_df = self.preprocess.preprocess_a(activities)
+			activities_df = self.activities_json_to_df (activities)
 		else:
-			# otherwise, check to make sure that self.activities_corpus is not none
-			if self.activities_corpus is not None:
-				# use the loaded activities corpus
-				recommend_activities_df = self.activities_corpus
-			else:
-				print "Use .load_activities_corpus first!"
-				return None
-				# use the loaded activities corpus
-				recommend_activities_df = self.activities_corpus
+			if not (self.activities_corpus is not None):
+				self.load_activities_corpus ()
+			activities_df = self.activities_corpus
 
-		# 2: find scores
-		scores = self.inference.recommend(user_representation, recommend_activities_df)
-
-		# 3: argsort the scores
-		sorted_indices = np.argsort(scores)[::-1]
-
-		# 4: make a list of the topn activities
-		top_scores = []
-		for i in range(topn):
-			top_scores.append(recommend_activities_df.iloc[sorted_indices[i]])
-
-		# 5: return
-		return top_scores
+		#=====[ Step 2: get scores, return sorted	]=====
+		activity_ranks = self.inference.rank_activities (user_representation, activities_df)
+		return list(activity_ranks)
 
 
-	def recommend_users_for_activity(self, activity, list_of_users, topn=5):
-		'''
-			function: recommend_users_for_activities
-
+	def recommend_users_for_activity(self, activity, list_of_users, topn=10):
+		"""
+			PUBLIC: recommend_users_for_activities
+			--------------------------------------
 			params: activity - activity to recommend users for
 					list_of_users - list of users to filter
 					topn - number of users to return
 
 			notes: goes from an activity and a list of users -> topn users for that activity
-			( this is #4 in Charles' email )
-		'''
-		# 1: find scores for each user
+		"""
 		scores = [self.score_activity_for_user(user, activity) for user in list_of_users]
-
-		# 2: argsort the scores
-		sorted_indices = np.argsort(scores)[::-1]
-
-		# 3: make a list of the topn users
-		top_users = [list_of_users[sorted_indices[i]] for i in range(topn)]
-
-		# 4: return
-		return top_users
-
-
-
-
-
-
-if __name__ == "__main__":
-
-	so = SpotOn ()
-
-	#=====[ Step 1: train semantic analysis	]=====
-	# print_header ("Demo Script - Training semantic analysis models")
-	# so.train_semantic_analysis ()
-
-	#=====[ Step 2: save semantic analysis models	]=====
-	# print_header ("Demo Script - Saving semantic analysis models")
-	# so.semantic_analysis.save ()
-
-	#=====[ Step 3: load semantic analysis models	]=====
-	print_header ("Demo Script - Loading semantic analysis models")	
-	so.semantic_analysis.load ()
-
-	#=====[ Step 4: load users	]=====
-	print_header ("Demo Script - Getting users")	
-	# so.get_users ()
-	so.load_users ()
-
-
-	#=====[ Step 3: apply to activity dfs	]=====
-	print_header ("Demo Script - Performing semantic analysis on activities")
-	for adf in so.storage_delegate.iter_activity_dfs ():
-
-		#=====[ Semantic analysis on adf	]=====
-		adf = so.semantic_analysis.add_semantic_summary (adf, 'name')
-
-		#=====[ Construct inference	]=====
-		inf = Inference (so.semantic_analysis.lda_model, so.semantic_analysis.lda_model_topic_dist)
-
-		#=====[ Recommend	]=====
-		print inf.recommend (so.u_df.iloc[3], adf[:100], 'all_event_names_LDA', 'name', 'all_event_names_W2V', 'name_W2V')
-
-
-
+		sorted_ix = np.argsort(scores)[::-1]
+		return [list_of_users[sorted_ix[i]] for i in range(topn)]
 
 
 

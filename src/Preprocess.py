@@ -9,7 +9,6 @@ import json
 import pickle
 import pandas as pd
 import string
-from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 from StorageDelegate import StorageDelegate
 from util import print_header, print_status, is_json, is_dataframe
@@ -80,13 +79,27 @@ a_retain_cols = [
 
 class Preprocess:
 
+	#==========[ PARAMETERS	]==========
+	stopwords = set(stopwords.words('english'))
+	weekdays = set ([	
+						'monday', 'mon', 
+						'tuesday','tues', 'tue', 
+						'wednesday', 'wed', 'wednes',
+						'thursday', 'thurs', 'thur',
+						'friday', 'fri', 
+						'saturday', 'sat',
+						'sunday', 'sun'
+					])
+	misc_words = set (['zvents', 'com', 'www', 'didn', 'don'])
+	remove_words = stopwords.union (weekdays).union(misc_words)
+
 
 	def __init__ (self):
 		"""
 			PUBLIC: constructor
 			-------------------
 		"""
-		self.tokenizer = RegexpTokenizer(r'\w+')
+		pass
 
 
 	def preprocess_ce(self, ce):
@@ -144,6 +157,9 @@ class Preprocess:
 
 		# print_status ("preprocess_a", "reformatting name")
 		df = self.reformat_natural_language_column (df, 'name')
+
+		# print_status ("preprocess_a", "reformatting words")
+		df = self.reformat_natural_language_column (df, 'words')
 
 		return df
 
@@ -253,6 +269,20 @@ class Preprocess:
 		return df.drop ('dates', 1)
 
 
+	def natural_language_to_list (self, c):
+		"""
+			PRIVATE: natural_language_to_list
+			---------------------------------
+			given a natural langauge column, converts to lowercase,
+			removes all punctuation and tokenizes
+		"""
+		c = c.str.lower ()
+		punctuation = '[^\w\s]'
+		c = c.str.replace(punctuation, '')
+		c = c.str.split ()
+		return c
+
+
 	def reformat_natural_language_column (self, df, colname):
 		"""
 			PRIVATE: reformat_natural_language_column
@@ -262,23 +292,16 @@ class Preprocess:
 			of lowercase words, exluding punctation, stopwords
 			and those with numbers
 		"""
-		#=====[ Step 1: convert to lowercase	]=====
-		df[colname] = df[colname].str.lower ()
+		#=====[ Step 1: tokenize if necessary	]=====
+		if not type(df[colname].iloc[0]) == list:
+			df[colname] = self.natural_language_to_list (df[colname])
 
-		#=====[ Step 2: remove punctuation (TODO: remove words with numbers too)	]=====
-		punctuation = '[^\w\s]'
-		df[colname] = df[colname].str.replace(punctuation, '')
-
-		#=====[ Step 3: split on spaces	]=====
-		df[colname] = df[colname].str.split ()
-
-		#=====[ Step 4: remove stopwords/words with digits	]=====
-		sw = set(stopwords.words('english'))
+		#=====[ Step 2: remove stopwords/words with digits	]=====
 		_digits = re.compile('\d')
 		def contains_digits(word):
 			return bool(_digits.search(word))
 		def is_valid (word):
-			if word in sw:
+			if word in self.remove_words:
 				return False
 			if not contains_digits(word):
 				return True

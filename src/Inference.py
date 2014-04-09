@@ -11,6 +11,9 @@ from util import *
 
 class Inference(object):
 
+	#==========[ PARAMETERS	]==========
+	minimum_doc_length = 20
+
 
 	def __init__(self, lda_model, topic_distributions, feature_weights=[1, 0]):
 		"""
@@ -21,254 +24,226 @@ class Inference(object):
 		self.lda_model = lda_model
 		self.topic_distributions = topic_distributions
 		self.feature_weights = feature_weights
-		self.very_negative_number = -12930183492234
 
-		
 
-	def apply_weights(self, scores):
+	####################################################################################################
+	######################[ --- COMPUTE FEATURES --- ]##################################################
+	####################################################################################################
+
+	def get_doc_gen_prob (self, user_lda_vec, word_list):
 		"""
-			PRIVATE: apply_weights
-			----------------------
-			given scores, a list of 
+			PRIVATE: get_doc_gen_prob
+			-------------------------
+			params: user_lda_vec - user's LDA topic vector
+					word_list - list of words in the document
+
+			returns: probability that user topic vector generates document
+					comprised of words in word_list
 		"""
-		#=====[ Step 1: normalize score vectors	]=====
-		normalized_scores = [stats.zscore(s) for s in scores]
+		#=====[ Step 1: get valid words	]=====
+		valid_words = [w for w in word_list if w in self.topic_distributions[0]]
+		if len(valid_words) < self.minimum_doc_length:
+			return np.nan
 
-		#=====[ Step 2: apply weights from self.weights	]=====
-		weighted_scores = [np.dot (self.feature_weights, s) for s in normalized_scores]
-		return weighted_scores
+		#=====[ Step 2: get pseudo-p(words | topic)	for each topic ]=====
+		#p_w: ith row, jth col = probability that ith topic generated word j
+		p_w = np.array([[topic[w] for w in valid_words] for topic in self.topic_distributions])
+		#p_W: ith entry = probability that ith topic generated the words list
+		p_W = np.exp(np.mean(np.log (p_w), axis=1))
+		#normalize p_W: gets rid of priors irrelevant to this user?
+		p_W = p_W / np.sum(p_W)
+
+		#=====[ Step 3: 'sparse code' it - remove low values	]=====
+		p_W[p_W < 0.05] = 0
+		p_W = p_W / np.sum(p_W)
+
+		#=====[ Step 3: multiply in user priors on topics	]=====
+		return np.dot (user_lda_vec, p_W)
 
 
+	def compute_lda_gen_prob_feature (self, user_rep, a_df):
+		"""
+			PRIVATE: compute_lda_gen_prob_feature
+			-------------------------------------
+			params: user_rep - user representation 
+					a_df - dataframe of activities
+
+			returns: pandas series containing generation probability 
+						for user/activity
+		"""
+		user_lda_vec = user_rep['lda_vec']
+		def p_gen (doc):
+			return self.get_doc_gen_prob (user_lda_vec, doc)
+		return a_df['lda_doc'].apply (p_gen)
 
 
+	def compute_lda_sim_feature (self, user_rep, a_df):
+		"""
+			PRIVATE: add_lda_sim_feature
+			----------------------------
+			params: user_rep - user representation
+					a_df - dataframe of activities 
 
-
-	def chance_of_generation(self,topic, activity_words):
-		'''
-			function: chance_of_generation
-
-			params: topic - topic index
-					activity_words - words in the activity
-
-			returns: the chance that topic number "topic" generates the list of words "event"
-			note: returns the arithmetic average in log space of the generation probabilities so that long events aren't penalized
-		'''
-		total = 0.0
-		seen = 0
-		# 1: iterate through every word in activity_words
-		for word in activity_words:
-
-			if word not in self.topic_distributions[topic]:
-				continue
+			returns: pandas series containing cosine similarity 
+						between user lda_vec and activity lda_vec
+		"""
+		user_ldas = user_rep['events_df']['lda_vec']
+		def max_cos_sim (activity_lda):
+			sims = [(1 - cosine(activity_lda, user_ldas.iloc[i])) for i in range(len(user_ldas))]
+			maximum = max(sims)
+			if np.isnan(maximum):
+				return -1
 			else:
-				seen +=1 
-			try:
-				#2:  add the chance to generate this word
-				total += np.log(self.topic_distributions[topic][word])
-			except:
-				print "event:" + str(event)
-				print "topic:" + str(topic)
-				print "word:" + str(word)
-				sys.exit()
-
-		# if seen was 0, then none of the words in activity_words has ever been seen, so we should return
-		# the very negative number
-		if seen < 15:
-			return self.very_negative_number
-		# 3: return the arithmetic average in log space (equivalent to the geometric average in probability space)
-		total = total/seen
-		return total
+				return maximum
+		return a_df['lda_vec'].apply (max_cos_sim)
 
 
-
-	def probability_of_generation(self, user_topic_vector, activity_words):
-		'''
-			function: probability_of_generation
-
-			params: user_topic_vector - user's LDA topic vector
-					activity_words - list of words in the activity
-
-			returns: the probability that the topic vector generates the words in activity_words
-		'''
-		# 1: sum over all topics
-		total = 0
-		for topic in range(len(user_topic_vector)):
-			# 2: chance of picking this topic
-			topic_probability = user_topic_vector[topic]
-
-			#3: chance of generating activity_words (NOTE: activity_words a list of words)
-			chance_of_generation = self.chance_of_generation(topic, activity_words)
-
-			total += topic_probability*chance_of_generation
-		return total
-
-
-	def cosine_similarity(self, vec_one, vec_two):
-		return (1 - cosine(vec_one, vec_two))
-
-	def k_activities_per_cluster(self, index_to_cluster, weighted_scores, k=None):
-		'''
-			function: k_activities_per_cluster
-
-			params: index_to_cluster - mapping index of weighted scores to the cluster that activity was in
-					weighted_scores - scores for each activity
-					k - number of activities in each cluster to take
-					( if k is none, then don't do any of this k-means stuff )
-			returns: list of indices into the activities dataframe listed in order of their scores
-		'''
-		# if k is none, then just return the sorted indices of weighted_scores
-		if k == None:
-			return np.argsort(weighted_scores)[::-1]
-		else:
-			#map cluster index to number of elements of this cluster used
-			cluster_mapping = defaultdict(int)
-			to_return = []
-			for index in np.argsort(weighted_scores)[::-1]:
-				# check if we have too many of this cluster yet
-				if cluster_mapping[index_to_cluster[index]] < k:
-					to_return.append(index)
-					# add one to the cluster mapping
-					cluster_mapping[index_to_cluster[index]] += 1
-				else:
-					continue
-			return to_return
-
-
-	def extract_doc_from_activity (self, activity_row):
+	def compute_w2v_sim_feature (self, user_rep, a_df):
 		"""
-			PRIVATE: extract_doc_from_activity
-			----------------------------------
-			given an activity represented as a series, this returns 
-			a list of words representing it. 
+			PRIVATE: add_w2v_sim_feature
+			----------------------------
+			params: user_rep - user representation
+					a_df - dataframe of activities 
+
+			returns: pandas series containing cosine similarity 
+						between user w2v and activity w2v
+
+			NOTE: currently implemented as *maximum* cosine similarity
+			between the activity_w2v and all of the user w2vs
 		"""
-		doc = []
-		if type(activity_row['name']) == list:
-			doc += activity_row['name']
-		if type(activity_row['words']) == list:
-			doc += activity_row['words']
-		return doc
+		user_w2vs = user_rep['events_df']['w2v_sum']
+		def max_cos_sim (activity_w2v):
+			sims = [(1 - cosine(activity_w2v, user_w2vs.iloc[i])) for i in range(len(user_w2vs))]
+			maximum = max(sims)
+			if np.isnan(maximum):
+				return -1
+			else:
+				return maximum
+		return a_df['w2v_sum'].apply (max_cos_sim)
 
 
-	def get_user_representation_from_activities (self, user_activities_df):
-		'''
-			function: get_user_representation_from_activities
-
-			params: user_activities - dataframe of activities belonging to the user
-					activities_field - field with words in the activities df.
-
-			returns: a dict containing a concatentated list of words including all the words belonging to the user
-					 and an LDA vector
-		'''
-		#=====[ Step 1: get a document representing the user	]=====
-		user_document = []
-		for i in range(len(user_activities_df)):
-			user_document += self.extract_doc_from_activity (user_activities_df.iloc[i])
-
-		#=====[ Step 2: get an LDA vector for it	]=====
-		lda_vector = self.get_lda_vec(user_document)
-
-		#=====[ Step 3: construct and return a representation of the user	]=====
-		return {'words': user_document, 'lda_vec': lda_vector}
-
-
-	def get_lda_vec (self, word_list):
+	def normalize_feature (self, array):
 		"""
-			PRIVATE: get_lda_vec
+			PRIVATE: normalize_feature
+			--------------------------
+			given an array representing a feature, this will 'normalize' 
+			the feature by calculating its zscore
+		"""
+		#=====[ Step 1: convert to zscores	]=====
+		mean, std = np.mean(array), np.std(array)
+		zscores = (array - mean) / std
+
+		#=====[ Step 2: shift so all are positive	]=====
+		return (zscores - np.min (zscores))
+
+
+	def featurize (self, user_rep, a_df):
+		"""
+			PRIVATE: featurize
+			------------------
+			params: user_rep - user representation 
+					a_df - dataframe containing activities
+
+			returns: a_df with feature columns added appropriately
+		"""
+		#=====[ Step 1: add raw features	]=====
+		a_df['[FEATURE: lda_gen_prob]']	= self.compute_lda_gen_prob_feature (user_rep, a_df)
+		a_df['[FEATURE: lda_sim]'] 		= self.compute_lda_sim_feature (user_rep, a_df)
+		a_df['[FEATURE: w2v_sim]'] 		= self.compute_w2v_sim_feature (user_rep, a_df)				
+
+		#=====[ Step 2: normalize features	]=====
+		a_df['[FEATURE: lda_gen_prob] norm']	= self.normalize_feature(a_df['[FEATURE: lda_gen_prob]'])
+		a_df['[FEATURE: lda_sim] norm'] 		= self.normalize_feature(a_df['[FEATURE: lda_sim]'])
+		a_df['[FEATURE: w2v_sim] norm'] 		= self.normalize_feature(a_df['[FEATURE: w2v_sim]'])				
+		return a_df
+
+
+	def is_featurized (self, a_df):
+		"""
+			PRIVATE: is_featurized
+			----------------------
+			params: a_df - dataframe containing activities
+
+			returns: boolean value for wether a_df has had features 
+						added to it appropriately
+		"""
+		if '[FEATURE: lda_gen_prob]' in a_df:
+			if '[FEATURE: lda_sim]' in a_df:
+				if '[FEATURE: w2v_sim]' in a_df:
+					return True
+		return False
+
+
+
+
+
+
+
+
+
+
+
+	####################################################################################################
+	######################[ --- COMPUTE SCORES/RANKINGS --- ]###########################################
+	####################################################################################################
+
+	def compute_scores (self, a_df):
+		"""
+			PRIVATE: compute_scores
+			-----------------------
+			params: a_df - dataframe containing activities *WITH* features
+							having been added
+
+			returns: pandas series representing a score for every activity
+		"""
+		#=====[ Step 1: ensure a_df is featurized	]=====
+		assert self.is_featurized (a_df)
+
+		weights = np.array([1, 1, 0])
+
+
+		#=====[ Step 2: combine scores	]=====
+		# scores = a_df['[FEATURE: lda_gen_prob] norm'] * a_df['[FEATURE: w2v_sim] norm'] #* a_df['[FEATURE: lda_sim] norm']
+		# scores = a_df['[FEATURE: w2v_sim] norm']
+		scores = a_df['[FEATURE: lda_sim]'] * a_df['[FEATURE: w2v_sim]']
+		scores = scores.fillna(-100000)
+		return scores
+
+
+	def infer_scores (self, user_rep, a_df):
+		"""
+			PUBLIC: infer_scores
 			--------------------
-			given a list of words, returns an lda vector characterizing 
-			it
+			params: user_rep - user representation 
+					a_df - dataframe containing activities
+
+			returns: dataframe with all features and scores added
 		"""
-		#=====[ Step 1: convert to gensim bag of words	]=====
-		gensim_bow = self.lda_model.id2word.doc2bow(word_list)
+		#=====[ Step 1: featurize	]=====
+		a_df = self.featurize (user_rep, a_df)
 
-		#=====[ Step 2: get and return lda vector	]=====
-		gamma, sstats = self.lda_model.inference([gensim_bow])
-		normalized_gamma = gamma[0] / sum(gamma[0])
-		return normalized_gamma
+		#=====[ Step 2: add scores, return	]=====
+		a_df['score'] = self.compute_scores (a_df)
+		return a_df
 
 
-	def score_activities (self, user_activities, recommend_activities):
+	def rank_activities (self, user_rep, a_df):
 		"""
-			PUBLIC: score_activities
-			------------------------
-			given two dataframes, the first being of a given user's activities,
-			the second of activities to recommend, this returns a list of scores 
+			PUBLIC: rank_activities
+			-----------------------
+			params: user_rep - user representation 
+					a_df - dataframe containing activities
+
+			returns: pandas index referencing row names in order of 
+						their recommendation scores
+			Note: this returns a list of row *names* (pass to .loc), not 
+			true .iloc positional indices
 		"""
-		#=====[ Step 1: go from user_activities to a user representation	]=====
-		user_rep = self.get_user_representation_from_activities(user_activities)
+		#=====[ Step 1: add scores	]=====
+		a_df = self.infer_scores (user_rep, a_df)
 
-		#=====[ Step 2: get recommendation scores	]=====
-		weighted_scores = self.recommend (user_rep, recommend_activities)
-
-		# 3: TODO: how should we sort scores? currently returns the indices into "recommend_activites" df
-		return weighted_scores, recommend_activities
-
-
-	def recommend (self, user_rep, activities_df):
-		"""
-			function: recommend
-
-			params: user_id - user row to recommend for
-					activites_df - activities df to score
-					user_lda_field - field in the user row with the lda vector
-					activities_field - field in the activities df with the WORDS (not the lda vector!)
-					user_w2v_field - field in the user row with the word2vec vector
-					activities_w2v_field - field in the activities df with the word2vec vector
-
-			returns: a list of indices into the activities dataframe, in order of score
-
-			notes: assumed LDA vectors in the activities dataframe is in column activities_field + '_lda'
-		"""
-
-		#1: get user's LDA vector and user's word2vec vector
-		user_lda_vector = user_rep['lda_vec']
-		# user_w2v_vector = user_row[user_w2v_field]
-
-		#2: create a list of lists, the i'th list being the words in the the i'th activity
-		word_vectors = []
-		for i in range(len(activities_df)):
-			word_vectors.append (self.extract_doc_from_activity(activities_df.iloc[i]))
-
-		#3: find probability of generation for each activity
-		prob_gen = []
-		for i in range(len(word_vectors)):
-			prob_gen.append(self.probability_of_generation(user_lda_vector, word_vectors[i]))
-
-		#4: create a list of lists, the i'th list being the word2vec vector in the i'th activity
-		# word_to_vec_vectors = []
-		# for i in range(len(activities_df)):
-		# 	word_to_vec_vectors.append(activities_df.iloc[i][activities_w2v_field])
-
-		w2v_cosine_similarity = [0 for i in range(len(activities_df))]
-		#5: find the cosine similarity between the user's w2v and the activity's
-		# w2v_cosine_similarity = []
-		# for i in range(len(word_to_vec_vectors)):
-			# w2v_cosine_similarity.append(self.cosine_similarity(user_w2v_vector, word_to_vec_vectors[i]))
-
-		#6: apply weights correctly
-		# weighted_scores = self.apply_weights([prob_gen, w2v_cosine_similarity])
-		return prob_gen
-
-		#7: run k-means on concatenated LDA + w2v scores
-		# concat_LDA_w2v = []
-		# for i in range(len(activities_df)):
-			# concat_LDA_w2v.append((activities_df.iloc[i][activities_field + '_LDA']) + word_to_vec_vectors[i])
-
-		# kmeans = KMeans(n_clusters=5)
-		# fit_predicted = kmeans.fit_predict(concat_LDA_w2v)
-
-		# return self.k_activities_per_cluster(fit_predicted, weighted_scores, k=None)
-
-
-
-
-
-
-
-
-
-
-
-
+		#=====[ Step 2: sorted index (nans still at front)]=====
+		sorted_ix = a_df.sort('score', ascending=False).index
+		return sorted_ix
 
 

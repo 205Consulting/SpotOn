@@ -17,7 +17,7 @@ from util import *
 class SemanticAnalysis:
 
 	#==========[ PARAMETERS	]==========
-	num_topics_lda 	= 15
+	num_topics_lda 	= 50
 	filenames 		= {
 						'gensim_dictionary': '../models/gensim_dictionary',
 						'lda': '../data/models/lda_model',
@@ -97,8 +97,8 @@ class SemanticAnalysis:
 		print_inner_status ("SA load", "loading LDA model ")
 		self.load_lda_model ()
 
-		# print_inner_status ("SA load", "loading Word2Vec model")
-		# self.load_word2vec_model ()
+		print_inner_status ("SA load", "loading Word2Vec model")
+		self.load_word2vec_model ()
 
 
 	def load_dictionary (self, filename='../data/models/gensim_dictionary'):
@@ -175,15 +175,15 @@ class SemanticAnalysis:
 
 		#=====[ Step 2: apply lda	]=====
 		print_inner_status ("SA analyze", "applying LDA")
-		df = self.apply_lda (df, target_col)		
+		df = self.add_lda_vec_column (df, target_col)		
 
 		#=====[ Step 3: apply word2vec	]=====
 		# print_inner_status ("SA analyze", "applying Word2Vec")
 		# df = self.apply_w2v (df, target_col)	
 
 		#=====[ Step 4: apply w2v weighted sum	]=====
-		# print_inner_status ("SA analyze", "applying Word2Vec weighted sum")
-		# df = self.apply_w2v_w_sum (df, target_col)
+		print_inner_status ("SA analyze", "applying Word2Vec")
+		df = self.apply_w2v_w_sum (df, target_col)
 
 		#=====[ Step 5: apply w2v weighted average	]=====
 		# print_inner_status ("SA analyze", "applying Word2Vec weighted average")
@@ -203,7 +203,7 @@ class SemanticAnalysis:
 
 
 	####################################################################################################
-	######################[ --- LDA --- ]###############################################################
+	######################[ --- TRAINING LDA --- ]######################################################
 	####################################################################################################
 
 	def get_colname_lda (self, target_col):
@@ -246,41 +246,6 @@ class SemanticAnalysis:
 		self.lda_model_topics = self.find_per_topic_word_distributions ()
 
 
-	def get_lda_vec (self, word_list):
-		"""
-			PRIVATE: get_lda_vec
-			--------------------
-			given a list of words, returns an lda vector characterizing 
-			it
-		"""
-		#=====[ Step 1: convert to gensim bag of words	]=====
-		gensim_bow = self.lda_model.id2word.doc2bow(word_list)
-
-		#=====[ Step 2: get and return lda vector	]=====
-		gamma, sstats = self.lda_model.inference([gensim_bow])
-		normalized_gamma = gamma[0] / sum(gamma[0])
-		return normalized_gamma
-
-
-	def apply_lda (self, df):
-		"""
-			PUBLIC: apply_lda
-			-----------------
-			given a dataframe and a target column, this will run LDA 
-			on it, add a column to df, and return it.
-		"""
-		lda_docs = []
-		def get_lda_doc (row):
-			nr = row['name']
-			nw = row['words']
-			lda_docs.append(sum([nr, nw], []))
-
-
-		df.apply (get_lda_doc, axis=1)
-		df['lda_vec'] = pd.Series([self.get_lda_vec(x) for x in lda_docs])
-		return df
-
-
 	def print_lda_topics (self, words_per_topic=30):
 		"""
 			PUBLIC: print_lda_topics
@@ -299,6 +264,93 @@ class SemanticAnalysis:
 			for word, weight in sorted_words[:words_per_topic]:
 				print word, ": ", weight
 			print "\n\n"
+
+
+
+
+
+	####################################################################################################
+	######################[ --- USING LDA --- ]#########################################################
+	####################################################################################################
+
+	def get_lda_vec (self, word_list):
+		"""
+			PRIVATE: get_lda_vec
+			--------------------
+			given a list of words, returns an lda vector characterizing 
+			it
+		"""
+		#=====[ Step 1: convert to gensim bag of words	]=====
+		gensim_bow = self.lda_model.id2word.doc2bow(word_list)
+
+		#=====[ Step 2: get and return lda vector	]=====
+		gamma, sstats = self.lda_model.inference([gensim_bow])
+		normalized_gamma = gamma[0] / sum(gamma[0])
+		return normalized_gamma
+
+
+	def add_lda_doc_column (self, df):
+		"""
+			PRIVATE: add_lda_doc_column
+			---------------------------
+			adds a column to df, 'lda_doc', that contains 
+			the document to be used for the given row
+		"""
+		df['lda_doc'] = df['name']*5 + df['words']
+		return df
+
+
+	def add_lda_vec_column (self, df):
+		"""
+			PUBLIC: add_lda_vec_column
+			--------------------------
+			given a dataframe, this will add an lda column
+		"""	
+		#=====[ Step 1: get the documents	]=====
+		df = self.add_lda_doc_column (df)
+
+		#=====[ Step 2: apply LDA to each	]=====
+		df['lda_vec'] = df['lda_doc'].apply (self.get_lda_vec)
+		return df
+
+
+	def get_user_lda_doc (self, user_df):
+		"""
+			PUBLIC: get_user_doc
+			--------------------
+			given a dataframe representing a user, this 
+			returns a document representing that user 
+		"""
+		#=====[ Step 1: get lda doc for each row	]=====
+		user_df = self.add_lda_doc_column (user_df)
+
+		#=====[ Step 2: sum together to get user doc 	]=====
+		return sum(list(user_df['lda_doc']), [])
+
+
+	def get_user_lda_vec (self, user_df):
+		"""
+			PUBLIC: get_user_lda_vec
+			------------------------
+			given a dataframe representing a user, this returns an lda 
+			vector representing that user 
+		"""
+		#=====[ Step 1: get user doc	]=====
+		user_doc = self.get_user_lda_doc (user_df)
+
+		#=====[ Step 2: apply lda, return	]=====
+		return self.get_lda_vec (user_doc)
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -352,110 +404,22 @@ class SemanticAnalysis:
 	######################[ --- Word2Vec --- ]##########################################################
 	####################################################################################################
 
-	def get_colname_w2v (self, target_col):
-		return target_col + '_W2V'
-
-	def get_colname_w2v_w_sum (self, target_col):
-		return target_col + '_W2V_w_s'
-
-	def get_colname_w2v_w_avg (self, target_col):
-		return target_col + '_W2V_w_avg'
-
-
-	def get_w2v (self, word_list):
+	def add_w2v_sum_column (self, df):
 		"""
-			PRIVATE: get_w2v
-			----------------
-			given a list of words, returns a list where the 
-			ith element is the word2vec representation for the 
-			ith word
+			PRIVATE: add_w2v_sum_column
+			---------------------------
+			adds a column 'w2v_sum' to the dataframe
 		"""
-		if type(word_list) == list:
-			return [self.word2vec_model[w] if w in self.word2vec_model else None for w in word_list]
-		else:
-			return []
+		def sum_w2vs (word_list):
+			word_list = [w for w in word_list if w in self.word2vec_model]
+			if len(word_list) == 0:
+				return np.zeros((200,))
+			else:
+				w2vs = np.array([self.word2vec_model[w] for w in word_list])
+				return np.sum (w2vs, axis=0)
 
-
-	def apply_w2v (self, df, target_col):
-		"""
-			PUBLIC: apply_word2vec
-			----------------------
-			given a dataframe and a list of 'target columns', this will return list
-			of word vectors for their *concatenated* contents
-		"""
-		col_name = self.get_colname_w2v (target_col)
-		df[col_name] = df[target_col].apply (self.get_w2v)
+		df['w2v_sum'] = df['name'].apply (sum_w2vs)
 		return df
-
-
-	def apply_w2v_w_sum (self, df, target_col):
-		"""
-			PUBLIC: apply_word2vec_w_sum
-			----------------------------
-			given a dataframe and a target column, gets a 
-			weighted sum of the word2vecs for each element 
-			based on its tf.idf 
-		"""
-		#=====[ Step 1: get column names	]=====
-		tfidf_colname 		= self.get_colname_tfidf (target_col)
-		w2v_colname 		= self.get_colname_w2v (target_col)
-		w2v_w_sum_colname 	= self.get_colname_w2v_w_sum (target_col)
-
-		#=====[ Step 2: ensure requisite columns exist	]=====
-		if not tfidf_colname in df:
-			df = self.apply_tfidf (df, target_col)
-		if not w2v_colname in df:
-			df = self.apply_w2v (df, target_col)
-
-		#=====[ Step 3: define sum function	]=====
-		def weighted_w2v_sum (row):
-			w2vs = row[w2v_colname]
-			tfidfs = np.array(row[tfidf_colname])
-			total = np.zeros ((200,))
-
-			for i in range (len(tfidfs)):
-				if type(w2vs[i]) != type(None):
-					try:
-						total += np.multiply(np.array(w2vs[i]), tfidfs[i])
-					except:
-						print "something got fucked up..."
-			return list(total)
-
-
-		#=====[ Step 4: apply sum function	]=====
-		df[w2v_w_sum_colname] = df.apply (weighted_w2v_sum, axis=1)
-		return df
-
-
-
-
-	def apply_w2v_w_avg (self, df, target_col):
-		"""
-			PUBLIC: apply_word2vec_w_avg
-			----------------------------
-			given a dataframe and a target column, gets a 
-			weighted average of the word2vecs for each element 
-			based on its tf.idf 
-		"""
-		#=====[ Step 1: get column names	]=====
-		w2v_w_sum_colname 	= self.get_colname_w2v_w_sum (target_col)		
-		w2v_w_avg_colname 	= self.get_colname_w2v_w_avg (target_col)				
-
-		#=====[ Step 2: ensure requisite columns exist	]=====
-		if not w2v_w_sum_colname in df:
-			df = self.apply_w2v_w_sum (df, target_col)
-
-		#=====[ Step 3: define weighted average	]=====
-		def weighted_w2v_average (row):
-			w2v_sum = row[w2v_w_sum_colname]
-			num_elements = len(row[target_col])
-			return list(np.divide (w2v_sum, num_elements))
-
-		#=====[ Step 4: apply average function	]=====
-		df[w2v_w_avg_colname] = df.apply (weighted_w2v_average, axis=1)
-		return df
-
-
 
 
 
