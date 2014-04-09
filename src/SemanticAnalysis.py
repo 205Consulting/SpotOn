@@ -91,8 +91,8 @@ class SemanticAnalysis:
 		print_inner_status ("SA load", "loading dictionary")
 		self.load_dictionary ()
 
-		# print_inner_status ("SA load", "loading TF.IDF model")
-		# self.load_tfidf_model ()
+		print_inner_status ("SA load", "loading TF.IDF model")
+		self.load_tfidf_model ()
 
 		print_inner_status ("SA load", "loading LDA model ")
 		self.load_lda_model ()
@@ -267,6 +267,23 @@ class SemanticAnalysis:
 
 
 
+
+
+	####################################################################################################
+	######################[ --- USING TFIDF --- ]#######################################################
+	####################################################################################################
+
+	def add_tfidf_column (self, df):
+		"""
+			PRIVATE: add_tfidf_column
+			-------------------------
+			params: df - dataframe containing activities
+			returns: df containing 'tfidf_vec' column 
+		"""
+		def get_tfidf (word_list):
+			return self.tfidf_model[self.dictionary.doc2bow(word_list)]
+		df['tfidf_col'] = df['lda_doc'].apply (get_tfidf)
+		return df
 
 
 	####################################################################################################

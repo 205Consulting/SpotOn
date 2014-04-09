@@ -2,7 +2,7 @@
 # ----------------
 import json
 import numpy as np
-from scipy.spatial.distance import cosine
+from scipy.spatial.distance import cosine, cdist
 from scipy import stats
 from sklearn.cluster import KMeans
 from collections import defaultdict
@@ -77,6 +77,25 @@ class Inference(object):
 		return a_df['lda_doc'].apply (p_gen)
 
 
+	def min_cosine_sims (self, user_col, activities_col):
+		"""
+			PRIVATE: min_cosine_sims
+			------------------------
+			params:	user_col - pandas column containing vectors describing user
+					activities_col - pandas column containing vectors describing 
+									activities
+
+			returns: numpy array where ith element is minumum cosine sim between
+						a user and an event
+		"""
+		#=====[ Step 1: get cosine sims between entities	]=====
+		sims = 1 - cdist (activities_col, user_col, 'cosine')
+		sims[np.isnan(sims)] = -1
+
+		#=====[ Step 2: return the min of each *row*	]=====
+		return np.max (sims, axis=1)
+
+
 	def compute_lda_sim_feature (self, user_rep, a_df):
 		"""
 			PRIVATE: add_lda_sim_feature
@@ -87,15 +106,9 @@ class Inference(object):
 			returns: pandas series containing cosine similarity 
 						between user lda_vec and activity lda_vec
 		"""
-		user_ldas = user_rep['events_df']['lda_vec']
-		def max_cos_sim (activity_lda):
-			sims = [(1 - cosine(activity_lda, user_ldas.iloc[i])) for i in range(len(user_ldas))]
-			maximum = max(sims)
-			if np.isnan(maximum):
-				return -1
-			else:
-				return maximum
-		return a_df['lda_vec'].apply (max_cos_sim)
+		u_ldas = np.array(list(user_rep['events_df']['lda_vec']))
+		a_ldas = np.array(list(a_df['lda_vec']))
+		return self.min_cosine_sims (u_ldas, a_ldas)
 
 
 	def compute_w2v_sim_feature (self, user_rep, a_df):
@@ -111,15 +124,9 @@ class Inference(object):
 			NOTE: currently implemented as *maximum* cosine similarity
 			between the activity_w2v and all of the user w2vs
 		"""
-		user_w2vs = user_rep['events_df']['w2v_sum']
-		def max_cos_sim (activity_w2v):
-			sims = [(1 - cosine(activity_w2v, user_w2vs.iloc[i])) for i in range(len(user_w2vs))]
-			maximum = max(sims)
-			if np.isnan(maximum):
-				return -1
-			else:
-				return maximum
-		return a_df['w2v_sum'].apply (max_cos_sim)
+		u_w2vs = np.array(list(user_rep['events_df']['w2v_sum']))
+		a_w2vs = np.array(list(a_df['w2v_sum']))
+		return self.min_cosine_sims (u_w2vs, a_w2vs)
 
 
 	def normalize_feature (self, array):
