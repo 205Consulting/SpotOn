@@ -154,12 +154,12 @@ class Inference(object):
 			returns: a_df with feature columns added appropriately
 		"""
 		#=====[ Step 1: add raw features	]=====
-		a_df['[FEATURE: lda_gen_prob]']	= self.compute_lda_gen_prob_feature (user_rep, a_df)
+		# a_df['[FEATURE: lda_gen_prob]']	= self.compute_lda_gen_prob_feature (user_rep, a_df)
 		a_df['[FEATURE: lda_sim]'] 		= self.compute_lda_sim_feature (user_rep, a_df)
 		a_df['[FEATURE: w2v_sim]'] 		= self.compute_w2v_sim_feature (user_rep, a_df)				
 
 		#=====[ Step 2: normalize features	]=====
-		a_df['[FEATURE: lda_gen_prob] norm']	= self.normalize_feature(a_df['[FEATURE: lda_gen_prob]'])
+		# a_df['[FEATURE: lda_gen_prob] norm']	= self.normalize_feature(a_df['[FEATURE: lda_gen_prob]'])
 		a_df['[FEATURE: lda_sim] norm'] 		= self.normalize_feature(a_df['[FEATURE: lda_sim]'])
 		a_df['[FEATURE: w2v_sim] norm'] 		= self.normalize_feature(a_df['[FEATURE: w2v_sim]'])				
 		return a_df
@@ -174,10 +174,12 @@ class Inference(object):
 			returns: boolean value for wether a_df has had features 
 						added to it appropriately
 		"""
-		if '[FEATURE: lda_gen_prob]' in a_df:
-			if '[FEATURE: lda_sim]' in a_df:
-				if '[FEATURE: w2v_sim]' in a_df:
-					return True
+		if '[FEATURE: lda_sim]' in a_df:
+			if '[FEATURE: w2v_sim]' in a_df:
+				# if '[FEATURE: lda_gen_prob]' in a_df:
+					# return True
+				return True
+
 		return False
 
 
